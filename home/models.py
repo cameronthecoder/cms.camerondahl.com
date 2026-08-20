@@ -20,6 +20,8 @@ class HomePage(Page):
 
     subpage_types = ['blog.BlogIndexPage', 'about.AboutPage']
 
+    preview_modes = []
+
 
     api_fields = [
         APIField('location'),

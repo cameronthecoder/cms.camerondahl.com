@@ -1,2 +1,7 @@
 Django>=5.2,<5.3
 wagtail>=7.2,<7.3
+
+# Explicitly listed in INSTALLED_APPS
+django-cors-headers>=4.9,<5.0
+djangorestframework>=3.16,<4.0
+django-filter>=25.2

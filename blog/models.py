@@ -1,9 +1,10 @@
+from html import unescape
+
 from django.db import models
-from django.conf import settings
+from django.utils.html import strip_tags
 from wagtail.models import Page, Orderable
 from wagtail.snippets.models import register_snippet
 from wagtail.fields import StreamField
-from wagtail_headless_preview.models import HeadlessMixin
 from taggit.models import TaggedItemBase
 from rest_framework import serializers
 from modelcluster.fields import ParentalKey
@@ -13,7 +14,6 @@ from wagtail.admin.panels import FieldPanel, InlinePanel
 from wagtail import blocks
 from wagtail.api import APIField
 from wagtail.images.blocks import ImageChooserBlock
-from wagtail.rich_text import expand_db_html
 
 class VideoBlock(blocks.StructBlock):
     video_url = blocks.URLBlock(help_text="YouTube or Vimeo URL")
@@ -35,11 +35,8 @@ class BlogIndexPage(Page):
 
     subpage_types = ['BlogPage']
 
-    def get_context(self, request):
-        context = super().get_context(request)
-        blog_pages = BlogPage.objects.live().public().order_by('-date')
-        context['blog_pages'] = blog_pages
-        return context
+    # Preview is disabled: this is a headless CMS with no server-rendered templates.
+    preview_modes = []
 
 class Reference(Orderable):
     page = ParentalKey('BlogPage', on_delete=models.CASCADE, related_name='references')
@@ -61,7 +58,7 @@ class Reference(Orderable):
 class CodeBlock(blocks.StructBlock):
     language = blocks.ChoiceBlock(choices=[
         ('py', 'Python'),
-        ('hs', 'JavaScript'),
+        ('js', 'JavaScript'),
         ('html', 'HTML'),
         ('css', 'CSS'),
         ('java', 'Java'),
@@ -72,7 +69,7 @@ class CodeBlock(blocks.StructBlock):
         ('php', 'PHP'),
         ('swift', 'Swift'),
         ('kotlin', 'Kotlin'),
-    ], default='python')
+    ], default='py')
     code = blocks.TextBlock()
 
     class Meta:
@@ -154,14 +151,6 @@ class Category(models.Model):
     class Meta:
         verbose_name_plural = "Categories"
 
-class SizedRichTextBlockSerializer(serializers.Serializer):
-    size = serializers.CharField()
-    content = serializers.SerializerMethodField()
-
-    def get_content(self, obj):
-        # Convert RichText to HTML
-        return expand_db_html(obj.get('content', ''))
-
 class SizedRichTextBlock(blocks.StructBlock):
     size = blocks.ChoiceBlock(
         choices=[
@@ -201,7 +190,7 @@ class CategorySerializer(serializers.ModelSerializer):
         model = Category
         fields = ['id', 'name', 'slug', 'description']
 
-class BlogPage(HeadlessMixin, Page):
+class BlogPage(Page):
     date = models.DateField("Post date")
     intro = models.CharField(max_length=250)
     category = models.ForeignKey(
@@ -229,7 +218,7 @@ class BlogPage(HeadlessMixin, Page):
     body = StreamField([
         ('heading', blocks.CharBlock(form_classname="title")),
         ('paragraph', SizedRichTextBlock()),
-        ('image', ImageChooserBlock(serializers=ImageFieldSerializer())),
+        ('image', ImageChooserBlock()),
         ('pull_quote', PulledQuote()),
         ('code', CodeBlock(form_classname="textarea")),
         ('quote', blocks.BlockQuoteBlock()),
@@ -240,11 +229,26 @@ class BlogPage(HeadlessMixin, Page):
     
     @property
     def reading_time(self):
-        # Rough estimate: 200 words per minute
-        word_count = len(str(self.body)) // 5  # Rough word count
-        return max(1, word_count // 200)
+        """Estimated minutes to read the prose blocks, at ~200 words per minute."""
+        words = 0
+        for block in self.body:
+            if block.block_type == 'heading':
+                text = str(block.value)
+            elif block.block_type == 'paragraph':
+                text = strip_tags(str(block.value['text']))
+            elif block.block_type == 'pull_quote':
+                text = str(block.value['source'])
+            elif block.block_type == 'quote':
+                text = strip_tags(str(block.value))
+            else:
+                # image, code, video and file blocks are not read at prose speed
+                continue
+            words += len(unescape(text).split())
+        return max(1, round(words / 200))
     
     subpage_types = []
+
+    preview_modes = []
 
     content_panels = Page.content_panels + [
         FieldPanel('date'),

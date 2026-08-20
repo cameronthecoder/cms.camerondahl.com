@@ -26,10 +26,8 @@ BASE_DIR = PROJECT_DIR.parent
 INSTALLED_APPS = [
     "corsheaders",
     "home",
-    "search",
     "about",
     "projects",
-    "wagtail_headless_preview",
     "blog",
     "wagtail.api.v2",
     "wagtail.contrib.forms",
@@ -55,23 +53,13 @@ INSTALLED_APPS = [
     "rest_framework"
 ]
 
-WAGTAIL_HEADLESS_PREVIEW = {
-    "CLIENT_URLS": {
-        "default": "http://localhost:3000/preview",
-        "prod": "https://camerondahl.com",
-    },  # defaults to an empty dict. You must at the very least define the default client URL.
-    "SERVE_BASE_URL": None,  # can be used for HeadlessServeMixin
-    "REDIRECT_ON_PREVIEW": True,  # set to True to redirect to the client URL instead of using an iframe
-    "ENFORCE_TRAILING_SLASH": True,  # set to False in order to disable the trailing slash enforcement
-}
-
-
 CORS_ALLOWED_ORIGINS = [
     "http://localhost:3000",
     "http://localhost:8000",
     "http://127.0.0.1:8000",
     "http://127.0.0.1:3000",
-    "http://camerondahl.com",
+    "https://camerondahl.com",
+    "https://www.camerondahl.com",
 ]
 
 CORS_ALLOW_HEADERS = [
@@ -210,7 +198,7 @@ WAGTAILSEARCH_BACKENDS = {
 
 # Base URL to use when referring to full URLs within the Wagtail admin backend -
 # e.g. in notification emails. Don't include '/admin' or a trailing slash
-WAGTAILADMIN_BASE_URL = "http://example.com"
+WAGTAILADMIN_BASE_URL = "https://camerondahl.com"
 
 # Allowed file extensions for documents in the document library.
 # This can be omitted to allow all files, but note that this may present a security risk
