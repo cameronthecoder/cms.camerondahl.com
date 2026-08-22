@@ -2,10 +2,17 @@
 """Django's command-line utility for administrative tasks."""
 import os
 import sys
+from pathlib import Path
+
+from dotenv import load_dotenv
 
 
 def main():
     """Run administrative tasks."""
+    # Loads variables from .env into the environment if the file exists (local
+    # dev). In production, real environment variables set by the host take
+    # precedence and this becomes a no-op.
+    load_dotenv(Path(__file__).resolve().parent / ".env")
     os.environ.setdefault("DJANGO_SETTINGS_MODULE", "camdahl_cms.settings.dev")
     try:
         from django.core.management import execute_from_command_line

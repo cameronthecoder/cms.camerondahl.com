@@ -18,6 +18,9 @@ db.sqlite3-journal
 # Local settings overrides (secrets live here)
 camdahl_cms/settings/local.py
 
+# Local environment variables (secrets live here) — see .env.example
+.env
+
 # OS / editor
 .DS_Store
 .idea/

@@ -11,8 +11,11 @@ EXPOSE 8000
 # 1. Force Python stdout and stderr streams to be unbuffered.
 # 2. Set PORT variable that is used by Gunicorn. This should match "EXPOSE"
 #    command.
+# 3. Default to the production settings module. Override at deploy time
+#    (e.g. -e DJANGO_SETTINGS_MODULE=camdahl_cms.settings.staging) if needed.
 ENV PYTHONUNBUFFERED=1 \
-    PORT=8000
+    PORT=8000 \
+    DJANGO_SETTINGS_MODULE=camdahl_cms.settings.production
 
 # Install system packages required by Wagtail and Django.
 RUN apt-get update --yes --quiet && apt-get install --yes --quiet --no-install-recommends \
@@ -45,8 +48,12 @@ COPY --chown=wagtail:wagtail . .
 # Use user "wagtail" to run the build commands below and the server itself.
 USER wagtail
 
-# Collect static files.
-RUN python manage.py collectstatic --noinput --clear
+# Collect static files. Uses throwaway values for the secrets that production
+# settings require, since real ones are only injected at "docker run" time by
+# the hosting platform and aren't available (or needed) during the build.
+RUN SECRET_KEY="build-time-placeholder" ALLOWED_HOSTS="localhost" \
+    DATABASE_URL="postgres://user:pass@localhost/placeholder" \
+    python manage.py collectstatic --noinput --clear
 
 # Runtime command that executes when "docker run" is called, it does the
 # following:
