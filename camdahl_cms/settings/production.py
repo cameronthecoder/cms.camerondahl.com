@@ -2,7 +2,7 @@ import os
 
 from .base import *
 
-DEBUG = os.environ.get("DJANGO_DEBUG", "False") == "True"
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # Required — fail loudly at startup rather than silently running with a

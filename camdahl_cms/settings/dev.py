@@ -3,7 +3,7 @@ import os
 from .base import *
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = os.environ.get("DJANGO_DEBUG", "True") == "True"
+DEBUG = os.environ.get("DEBUG", "True") == "True"
 
 # SECURITY WARNING: keep the secret key used in production secret!
 # Falls back to a fixed dev-only key so `manage.py runserver` works out of
