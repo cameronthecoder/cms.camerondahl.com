@@ -153,6 +153,17 @@ DATABASES = {
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "webmaster@localhost")
 SERVER_EMAIL = os.environ.get("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 
+# Who gets emailed on unhandled server errors (Django's built-in
+# AdminEmailHandler — active automatically when DEBUG=False, via the default
+# logging config). Comma-separated emails, or "Name:email" pairs, e.g.
+# "Cam:cam@camerondahl.com,other@example.com". Empty by default so dev
+# never emails anyone even if DEBUG were off.
+ADMINS = [
+    tuple(pair.split(":", 1)) if ":" in pair else (pair, pair)
+    for pair in (p.strip() for p in os.environ.get("ADMINS", "").split(","))
+    if pair
+]
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
