@@ -16,8 +16,6 @@
                 {% endif %}
             </div>
 
-            <p>{% trans "Password sign-in is disabled. Enter your email and we'll send you a one-time sign-in link." %}</p>
-
             <form class="login-form" action="{% url 'request_magic_link' %}" method="post" novalidate>
                 {% csrf_token %}
                 <input type="hidden" name="next" value="{{ next }}" />
