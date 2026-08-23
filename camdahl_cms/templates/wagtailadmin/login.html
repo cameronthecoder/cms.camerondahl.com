@@ -1,0 +1,18 @@
+{% extends "wagtailadmin/login.html" %}
+{% load i18n %}
+
+{% block login_form %}
+    {% if magic_link_login_only %}
+        <p>{% trans "Password sign-in is disabled. Request a one-time sign-in link instead." %}</p>
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock %}
+
+{% block submit_buttons %}
+    {% if magic_link_login_only %}
+        <a class="button" href="{% url 'request_magic_link' %}">{% trans "Request a sign-in link" %}</a>
+    {% else %}
+        {{ block.super }}
+    {% endif %}
+{% endblock %}

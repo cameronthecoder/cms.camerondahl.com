@@ -79,6 +79,20 @@ CORS_ALLOW_HEADERS = [
 
 WAGTAIL_SITE_NAME = "Cam's CMS"
 
+# Magic-link ("passwordless") login via django-sesame.
+# Password auth (ModelBackend) is kept as a break-glass fallback.
+AUTHENTICATION_BACKENDS = [
+    "django.contrib.auth.backends.ModelBackend",
+    "sesame.backends.ModelBackend",
+]
+SESAME_MAX_AGE = 60 * 15  # Links expire after 15 minutes.
+SESAME_ONE_TIME = True  # Links can only be used once.
+
+# Hides the password form on the admin login page in favour of the magic-link
+# request flow. Overridden to True in production.py. See
+# camdahl_cms/templates/wagtailadmin/login.html.
+MAGIC_LINK_LOGIN_ONLY = False
+
 MIDDLEWARE = [
     'corsheaders.middleware.CorsMiddleware', 
     "django.middleware.security.SecurityMiddleware",
@@ -86,6 +100,7 @@ MIDDLEWARE = [
     "django.middleware.common.CommonMiddleware",
     "django.middleware.csrf.CsrfViewMiddleware",
     "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "sesame.middleware.AuthenticationMiddleware",
     "django.contrib.messages.middleware.MessageMiddleware",
     "django.middleware.clickjacking.XFrameOptionsMiddleware",
     "wagtail.contrib.redirects.middleware.RedirectMiddleware",
@@ -106,6 +121,7 @@ TEMPLATES = [
                 "django.template.context_processors.request",
                 "django.contrib.auth.context_processors.auth",
                 "django.contrib.messages.context_processors.messages",
+                "camdahl_cms.context_processors.magic_link_login_only",
             ],
         },
     },

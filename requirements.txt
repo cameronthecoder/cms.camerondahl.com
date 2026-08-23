@@ -13,3 +13,6 @@ psycopg[binary]>=3.1,<4.0
 # Loads variables from a local .env file (no-op if the file doesn't exist,
 # so it's safe in production where real env vars are set by the platform)
 python-dotenv>=1.0,<2.0
+
+# Magic-link ("passwordless") login for the admin
+django-sesame>=3.2,<4.0

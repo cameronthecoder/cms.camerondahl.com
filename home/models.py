@@ -1,4 +1,5 @@
 from django.db import models
+from django.http import Http404
 from wagtail.api import APIField
 from wagtail.models import Page
 from wagtail.admin.panels import FieldPanel
@@ -22,6 +23,10 @@ class HomePage(Page):
 
     preview_modes = []
 
+    def serve(self, request, *args, **kwargs):
+        # Headless CMS — this page's data is served via the API, not rendered
+        # as HTML by Django.
+        raise Http404
 
     api_fields = [
         APIField('location'),
