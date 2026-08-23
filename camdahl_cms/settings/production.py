@@ -1,4 +1,4 @@
-import os, ssl
+import os
 
 from .base import *
 
@@ -24,8 +24,19 @@ if "DATABASE_URL" not in os.environ:
 # Sends real email via SMTP by default. Falls back to logging emails to the
 # console if EMAIL_HOST is unset, so a deploy without email configured yet
 # doesn't crash — password reset / notification emails just won't be sent.
+#
+# If EMAIL_CA_CERT_FILE is set, uses a custom backend that trusts exactly
+# that certificate instead of the system trust store — for a self-signed
+# server (e.g. Proton Mail Bridge, which can't get a CA-signed cert since it
+# only listens on localhost). Export the cert from Bridge's settings and
+# point EMAIL_CA_CERT_FILE at that file. Leave it unset for a normal
+# provider with a real CA-signed certificate.
 if os.environ.get("EMAIL_HOST"):
-    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    if os.environ.get("EMAIL_CA_CERT_FILE"):
+        EMAIL_BACKEND = "camdahl_cms.email.TrustedCAEmailBackend"
+        EMAIL_CA_CERT_FILE = os.environ["EMAIL_CA_CERT_FILE"]
+    else:
+        EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
 else:
     EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
 EMAIL_HOST = os.environ.get("EMAIL_HOST", "")
@@ -33,8 +44,6 @@ EMAIL_PORT = int(os.environ.get("EMAIL_PORT", "587"))
 EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
 EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
-EMAIL_CA_BUNDLE = os.environ.get("EMAIL_CA_BUNDLE", None)
-EMAIL_SSL_KEYFILE = EMAIL_CA_BUNDLE
 
 # Magic links only — password auth is fully disabled in production, not just
 # hidden from the login page. Dropping ModelBackend means authenticate() can
