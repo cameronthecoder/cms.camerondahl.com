@@ -1,5 +1,5 @@
 Django>=5.2,<5.3
-wagtail>=7.2,<7.3
+wagtail>=7.4,<7.5  # 7.4 is an LTS release
 
 # Explicitly listed in INSTALLED_APPS
 django-cors-headers>=4.9,<5.0
