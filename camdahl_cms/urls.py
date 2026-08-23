@@ -11,7 +11,7 @@ from .api import api_router, WritingsAPIViewSet
 urlpatterns = [
     path("api/v2/writings/<slug:slug>/", WritingsAPIViewSet.as_view({'get': 'detail_view'}), name="writings-detail-by-slug"),
     path("api/v2/", api_router.urls),
-    path("login-link/", request_magic_link, name="request_magic_link"),
+    path("admin/login-link/", request_magic_link, name="request_magic_link"),
     path("admin/", include(wagtailadmin_urls)),
     path("documents/", include(wagtaildocs_urls)),
 ]

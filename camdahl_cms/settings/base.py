@@ -79,8 +79,9 @@ CORS_ALLOW_HEADERS = [
 
 WAGTAIL_SITE_NAME = "Cam's CMS"
 
-# Magic-link ("passwordless") login via django-sesame.
-# Password auth (ModelBackend) is kept as a break-glass fallback.
+# Magic-link ("passwordless") login via django-sesame. Password auth
+# (ModelBackend) stays enabled here for local dev convenience; it's removed
+# entirely in production.py.
 AUTHENTICATION_BACKENDS = [
     "django.contrib.auth.backends.ModelBackend",
     "sesame.backends.ModelBackend",

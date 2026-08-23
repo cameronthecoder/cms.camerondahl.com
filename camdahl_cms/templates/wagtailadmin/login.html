@@ -1,17 +1,48 @@
 {% extends "wagtailadmin/login.html" %}
-{% load i18n %}
+{% load i18n wagtailadmin_tags %}
 
-{% block login_form %}
+{% block furniture %}
     {% if magic_link_login_only %}
-        <p>{% trans "Password sign-in is disabled. Request a one-time sign-in link instead." %}</p>
-    {% else %}
-        {{ block.super }}
-    {% endif %}
-{% endblock %}
+        <main class="content-wrapper" id="main">
+            <h1>{% trans "Sign in to Wagtail" %}</h1>
 
-{% block submit_buttons %}
-    {% if magic_link_login_only %}
-        <a class="button" href="{% url 'request_magic_link' %}">{% trans "Request a sign-in link" %}</a>
+            <div class="messages" role="status">
+                {% if messages %}
+                    <ul>
+                        {% for message in messages %}
+                            <li class="{{ message.tags }}">{{ message }}</li>
+                        {% endfor %}
+                    </ul>
+                {% endif %}
+            </div>
+
+            <p>{% trans "Password sign-in is disabled. Enter your email and we'll send you a one-time sign-in link." %}</p>
+
+            <form class="login-form" action="{% url 'request_magic_link' %}" method="post" novalidate>
+                {% csrf_token %}
+                <input type="hidden" name="next" value="{{ next }}" />
+                <div>
+                    <label for="id_magic_link_email">{% trans "Email" %}</label>
+                    <input type="email" name="email" id="id_magic_link_email" autocomplete="email" autofocus required>
+                </div>
+                <footer class="form-actions">
+                    <button
+                        type="submit"
+                        class="button button-longrunning"
+                        data-controller="w-progress"
+                        data-action="w-progress#activate"
+                        data-w-progress-active-value="{% trans 'Sending…' %}"
+                    >
+                        {% icon name="spinner" %}
+                        <em data-w-progress-target="label">{% trans "Send sign-in link" %}</em>
+                    </button>
+                </footer>
+            </form>
+
+            <div class="login-logo">
+                {% include "wagtailadmin/logo.html" with wordmark="True" %}
+            </div>
+        </main>
     {% else %}
         {{ block.super }}
     {% endif %}

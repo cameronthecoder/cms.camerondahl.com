@@ -35,10 +35,14 @@ EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
 EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False") == "True"
 
-# Password login is hidden on the admin login page in production — magic
-# links only. Password auth (ModelBackend) itself is still active as a
-# break-glass fallback; only the UI is restricted.
+# Magic links only — password auth is fully disabled in production, not just
+# hidden from the login page. Dropping ModelBackend means authenticate() can
+# no longer succeed with a username/password, even via a direct POST that
+# bypasses the login form.
 MAGIC_LINK_LOGIN_ONLY = True
+AUTHENTICATION_BACKENDS = [
+    "sesame.backends.ModelBackend",
+]
 
 # ManifestStaticFilesStorage is recommended in production, to prevent
 # outdated JavaScript / CSS assets being served from cache
