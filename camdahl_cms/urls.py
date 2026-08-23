@@ -1,5 +1,6 @@
 from django.conf import settings
 from django.urls import include, path
+from django.views.generic import RedirectView
 
 from wagtail.admin import urls as wagtailadmin_urls
 from wagtail import urls as wagtail_urls
@@ -14,6 +15,9 @@ urlpatterns = [
     path("admin/login-link/", request_magic_link, name="request_magic_link"),
     path("admin/", include(wagtailadmin_urls)),
     path("documents/", include(wagtaildocs_urls)),
+    # Headless CMS — there's nothing to render at the root, so send visitors
+    # straight to the admin instead of a 404.
+    path("", RedirectView.as_view(pattern_name="wagtailadmin_home", permanent=False)),
 ]
 
 
