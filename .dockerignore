@@ -3,6 +3,10 @@
 /static/
 *.sqlite3
 
+# Secrets — this image expects .env to be bind-mounted at "docker run" time,
+# never baked into the image (see Dockerfile).
+.env
+
 # Python and others
 __pycache__
 *.pyc

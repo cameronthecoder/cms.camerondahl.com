@@ -11,11 +11,13 @@ EXPOSE 8000
 # 1. Force Python stdout and stderr streams to be unbuffered.
 # 2. Set PORT variable that is used by Gunicorn. This should match "EXPOSE"
 #    command.
-# 3. Default to the production settings module. Override at deploy time
-#    (e.g. -e DJANGO_SETTINGS_MODULE=camdahl_cms.settings.staging) if needed.
+# Deliberately NOT setting DJANGO_SETTINGS_MODULE (or any secret) here: this
+# image expects a .env file bind-mounted to /app/.env at "docker run" time
+# (e.g. `docker run -v /path/on/host/.env:/app/.env:ro ...`), which is what
+# actually controls the settings module and all secrets — see .env.example.
+# Without a mounted .env, the app falls back to dev settings (see manage.py).
 ENV PYTHONUNBUFFERED=1 \
-    PORT=8000 \
-    DJANGO_SETTINGS_MODULE=camdahl_cms.settings.production
+    PORT=8000
 
 # Install system packages required by Wagtail and Django.
 RUN apt-get update --yes --quiet && apt-get install --yes --quiet --no-install-recommends \
@@ -48,10 +50,12 @@ COPY --chown=wagtail:wagtail . .
 # Use user "wagtail" to run the build commands below and the server itself.
 USER wagtail
 
-# Collect static files. Uses throwaway values for the secrets that production
-# settings require, since real ones are only injected at "docker run" time by
-# the hosting platform and aren't available (or needed) during the build.
-RUN SECRET_KEY="build-time-placeholder" ALLOWED_HOSTS="localhost" \
+# Collect static files, forced onto the production settings module (so the
+# ManifestStaticFilesStorage config is used) with throwaway values for the
+# secrets it requires. The real .env isn't mounted yet at build time — it's
+# only attached at "docker run" — and collectstatic doesn't need real values.
+RUN DJANGO_SETTINGS_MODULE="camdahl_cms.settings.production" \
+    SECRET_KEY="build-time-placeholder" ALLOWED_HOSTS="localhost" \
     DATABASE_URL="postgres://user:pass@localhost/placeholder" \
     python manage.py collectstatic --noinput --clear
 
