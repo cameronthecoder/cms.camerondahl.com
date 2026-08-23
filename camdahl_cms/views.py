@@ -20,7 +20,7 @@ def api_routes_view(request):
         {
             "name": name,
             "path": f"api/v2/{name}/",
-            "model": viewset.model,
+            "model_name": viewset.model.__name__,
         }
         for name, viewset in sorted(api_router._endpoints.items())
     ]
