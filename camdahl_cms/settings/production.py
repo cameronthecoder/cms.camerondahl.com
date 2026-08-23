@@ -35,10 +35,7 @@ EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
 EMAIL_USE_TLS = os.environ.get("EMAIL_USE_TLS", "True") == "True"
 EMAIL_USE_SSL = os.environ.get("EMAIL_USE_SSL", "False") == "True"
 
-_ssl_context = ssl.create_default_context()
-_ssl_context.check_hostname = False
-_ssl_context.verify_mode = ssl.CERT_NONE
-EMAIL_SSL_CONTEXT = _ssl_context
+EMAIL_SSL_CONTEXT = ssl._create_unverified_context()
 
 # Magic links only — password auth is fully disabled in production, not just
 # hidden from the login page. Dropping ModelBackend means authenticate() can
