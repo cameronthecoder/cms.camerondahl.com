@@ -28,6 +28,9 @@ BASE_DIR = PROJECT_DIR.parent
 
 INSTALLED_APPS = [
     "corsheaders",
+    # The project package itself, so Wagtail's hook autodiscovery picks up
+    # camdahl_cms/wagtail_hooks.py (e.g. the admin API routes page).
+    "camdahl_cms",
     "home",
     "about",
     "projects",
