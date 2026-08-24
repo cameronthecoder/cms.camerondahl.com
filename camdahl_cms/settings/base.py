@@ -156,6 +156,10 @@ DATABASES = {
 DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "webmaster@localhost")
 SERVER_EMAIL = os.environ.get("SERVER_EMAIL", DEFAULT_FROM_EMAIL)
 
+# Subject-line prefix for mail_admins()/mail_managers() emails (e.g. error
+# reports). Defaults to "[Django] " otherwise.
+EMAIL_SUBJECT_PREFIX = os.environ.get("EMAIL_SUBJECT_PREFIX", f"[{WAGTAIL_SITE_NAME}] ")
+
 # Who gets emailed on unhandled server errors (Django's built-in
 # AdminEmailHandler — active automatically when DEBUG=False, via the default
 # logging config). Comma-separated emails, or "Name:email" pairs, e.g.
