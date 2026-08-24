@@ -167,6 +167,10 @@ ADMINS = [
     if pair
 ]
 
+# Trims the noise (full settings dump, sys.path, middleware list) out of
+# ADMINS error emails. See camdahl_cms/error_reporting.py.
+DEFAULT_EXCEPTION_REPORTER = "camdahl_cms.error_reporting.ConciseExceptionReporter"
+
 
 # Password validation
 # https://docs.djangoproject.com/en/6.0/ref/settings/#auth-password-validators
