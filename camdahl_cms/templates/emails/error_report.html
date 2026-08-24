@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html>
+<head><meta charset="utf-8"></head>
+<body style="margin:0;padding:24px 16px;background:#f4f4f7;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,sans-serif;color:#1a1a1a;">
+<div style="max-width:680px;margin:0 auto;">
+
+  <div style="background:#dc2626;color:#ffffff;padding:16px 20px;border-radius:8px 8px 0 0;">
+    <div style="font-size:12px;letter-spacing:.05em;text-transform:uppercase;opacity:.85;">
+      {% if request %}{{ request.META.REQUEST_METHOD }} {{ request.path_info }}{% else %}Error{% endif %}
+    </div>
+    <div style="font-size:18px;font-weight:600;margin-top:4px;">{% firstof exception_type "Error" %}</div>
+  </div>
+
+  <div style="background:#ffffff;border:1px solid #e5e5e5;border-top:none;border-radius:0 0 8px 8px;padding:20px;">
+
+    <div style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:13px;background:#fef2f2;border:1px solid #fecaca;border-radius:6px;padding:12px;color:#7f1d1d;white-space:pre-wrap;word-break:break-word;">{% firstof exception_value "No exception message supplied" %}{% if exception_notes %}
+{{ exception_notes }}{% endif %}</div>
+
+    <table style="width:100%;margin-top:16px;font-size:13px;border-collapse:collapse;">
+      <tr><td style="padding:4px 0;color:#666666;width:110px;vertical-align:top;">User</td><td style="padding:4px 0;">{% firstof user_str "Anonymous" %}</td></tr>
+      {% if request %}<tr><td style="padding:4px 0;color:#666666;vertical-align:top;">URL</td><td style="padding:4px 0;word-break:break-all;">{{ request_insecure_uri }}</td></tr>{% endif %}
+      <tr><td style="padding:4px 0;color:#666666;vertical-align:top;">Server time</td><td style="padding:4px 0;">{{ server_time|date:"r" }}</td></tr>
+      <tr><td style="padding:4px 0;color:#666666;vertical-align:top;">Django</td><td style="padding:4px 0;">{{ django_version_info }}</td></tr>
+    </table>
+
+    {% if template_does_not_exist %}
+    <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:#666666;margin:24px 0 8px;">Template loader postmortem</h3>
+    <div style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;background:#f8f8f8;border:1px solid #eeeeee;border-radius:6px;padding:12px;">
+      {% if postmortem %}{% for entry in postmortem %}Using engine {{ entry.backend.name }}:<br>
+        {% if entry.tried %}{% for attempt in entry.tried %}&nbsp;&nbsp;&bull; {{ attempt.0.loader_name }}: {{ attempt.0.name }} ({{ attempt.1 }})<br>{% endfor %}{% else %}&nbsp;&nbsp;This engine did not provide a list of tried templates.<br>{% endif %}
+      {% endfor %}{% endif %}
+    </div>
+    {% endif %}
+
+    {% if frames %}
+    <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:#666666;margin:24px 0 8px;">Traceback</h3>
+    <pre style="background:#1e1e2e;color:#e5e5e5;padding:14px;border-radius:6px;font-size:12px;line-height:1.6;overflow-x:auto;font-family:ui-monospace,SFMono-Regular,Consolas,monospace;margin:0;white-space:pre-wrap;word-break:break-word;">{% for frame in frames %}{% ifchanged frame.exc_cause %}{% if frame.exc_cause %}
+{% if frame.exc_cause_explicit %}The above exception ({{ frame.exc_cause }}) was the direct cause of the following exception:{% else %}During handling of the above exception ({{ frame.exc_cause }}), another exception occurred:{% endif %}
+{% endif %}{% endifchanged %}{% if frame.tb %}  File "{{ frame.filename }}"{% if frame.context_line %}, line {{ frame.lineno }}{% endif %}, in {{ frame.function }}
+{% if frame.context_line %}    {% spaceless %}{{ frame.context_line }}{% endspaceless %}{% endif %}
+{% elif forloop.first %}None
+{% else %}Traceback: None
+{% endif %}{% endfor %}</pre>
+    {% endif %}
+
+    {% if request %}
+    <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:#666666;margin:24px 0 8px;">GET</h3>
+    <div style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;background:#f8f8f8;border:1px solid #eeeeee;border-radius:6px;padding:12px;">
+      {% for k, v in request_GET_items %}{{ k }} = {{ v|stringformat:"r" }}<br>{% empty %}(none){% endfor %}
+    </div>
+
+    <h3 style="font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:#666666;margin:24px 0 8px;">POST</h3>
+    <div style="font-family:ui-monospace,SFMono-Regular,Consolas,monospace;font-size:12px;background:#f8f8f8;border:1px solid #eeeeee;border-radius:6px;padding:12px;">
+      {% for k, v in filtered_POST_items %}{{ k }} = {{ v|stringformat:"r" }}<br>{% empty %}(none){% endfor %}
+    </div>
+    {% else %}
+    <p style="font-size:13px;color:#666666;margin-top:24px;">No request data available (error occurred outside a request, e.g. in a management command).</p>
+    {% endif %}
+
+  </div>
+</div>
+</body>
+</html>

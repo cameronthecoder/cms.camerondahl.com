@@ -168,8 +168,59 @@ ADMINS = [
 ]
 
 # Trims the noise (full settings dump, sys.path, middleware list) out of
-# ADMINS error emails. See camdahl_cms/error_reporting.py.
+# ADMINS error emails, and styles the HTML version. See
+# camdahl_cms/error_reporting.py.
 DEFAULT_EXCEPTION_REPORTER = "camdahl_cms.error_reporting.ConciseExceptionReporter"
+
+# Full copy of Django's DEFAULT_LOGGING, with include_html=True added to the
+# mail_admins handler (off by default) so ADMINS emails get our styled HTML
+# report as well as plain text. Django's dictConfig-based LOGGING_CONFIG
+# replaces handlers/loggers wholesale rather than merging them, so this has
+# to restate the console/django.server handlers too, not just mail_admins.
+LOGGING = {
+    "version": 1,
+    "disable_existing_loggers": False,
+    "filters": {
+        "require_debug_false": {"()": "django.utils.log.RequireDebugFalse"},
+        "require_debug_true": {"()": "django.utils.log.RequireDebugTrue"},
+    },
+    "formatters": {
+        "django.server": {
+            "()": "django.utils.log.ServerFormatter",
+            "format": "[{server_time}] {message}",
+            "style": "{",
+        },
+    },
+    "handlers": {
+        "console": {
+            "level": "INFO",
+            "filters": ["require_debug_true"],
+            "class": "logging.StreamHandler",
+        },
+        "django.server": {
+            "level": "INFO",
+            "class": "logging.StreamHandler",
+            "formatter": "django.server",
+        },
+        "mail_admins": {
+            "level": "ERROR",
+            "filters": ["require_debug_false"],
+            "class": "django.utils.log.AdminEmailHandler",
+            "include_html": True,
+        },
+    },
+    "loggers": {
+        "django": {
+            "handlers": ["console", "mail_admins"],
+            "level": "INFO",
+        },
+        "django.server": {
+            "handlers": ["django.server"],
+            "level": "INFO",
+            "propagate": False,
+        },
+    },
+}
 
 
 # Password validation
