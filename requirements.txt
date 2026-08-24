@@ -16,3 +16,6 @@ python-dotenv>=1.0,<2.0
 
 # Magic-link ("passwordless") login for the admin
 django-sesame>=3.2,<4.0
+
+# CPU/memory/load stats for the admin server health page
+psutil>=7.0,<8.0

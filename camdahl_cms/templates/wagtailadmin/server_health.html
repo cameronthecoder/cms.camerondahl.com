@@ -1,0 +1,68 @@
+{% extends "wagtailadmin/base.html" %}
+{% load i18n %}
+
+{% block titletag %}{% trans "Server health" %}{% endblock %}
+
+{% block content %}
+    {% include "wagtailadmin/shared/header.html" with title=_("Server health") icon="desktop" %}
+
+    <div class="nice-padding">
+
+        <h2>{% trans "Versions" %}</h2>
+        <table class="listing">
+            <tbody>
+                <tr><th>{% trans "Python" %}</th><td>{{ python_version }}</td></tr>
+                <tr><th>{% trans "Django" %}</th><td>{{ django_version }}</td></tr>
+                <tr><th>{% trans "Wagtail" %}</th><td>{{ wagtail_version }}</td></tr>
+                <tr><th>{% trans "DEBUG" %}</th><td>{{ debug }}</td></tr>
+            </tbody>
+        </table>
+
+        <h2>{% trans "Uptime" %}</h2>
+        <table class="listing">
+            <tbody>
+                <tr><th>{% trans "System" %}</th><td>{{ system_uptime }}</td></tr>
+                <tr><th>{% trans "Worker process" %}</th><td>{{ worker_uptime }}</td></tr>
+            </tbody>
+        </table>
+
+        <h2>{% trans "Database" %}</h2>
+        <table class="listing">
+            <tbody>
+                <tr><th>{% trans "Engine" %}</th><td>{{ db_engine }}</td></tr>
+                <tr>
+                    <th>{% trans "Connection" %}</th>
+                    <td>
+                        {% if db_ok %}
+                            <span class="status-tag primary">{% trans "OK" %}</span>
+                        {% else %}
+                            <span class="status-tag">{% trans "Failed" %}</span> — {{ db_error }}
+                        {% endif %}
+                    </td>
+                </tr>
+                {% if db_size %}<tr><th>{% trans "Database file size" %}</th><td>{{ db_size }}</td></tr>{% endif %}
+            </tbody>
+        </table>
+
+        <h2>{% trans "CPU & memory" %}</h2>
+        <table class="listing">
+            <tbody>
+                <tr><th>{% trans "CPU cores" %}</th><td>{{ cpu_count }}</td></tr>
+                <tr><th>{% trans "CPU usage" %}</th><td>{{ cpu_percent }}%</td></tr>
+                <tr><th>{% trans "Load average (1 / 5 / 15 min)" %}</th><td>{{ load1 }} / {{ load5 }} / {{ load15 }}</td></tr>
+                <tr><th>{% trans "Memory" %}</th><td>{{ mem_used }} / {{ mem_total }} ({{ mem_percent }}%)</td></tr>
+            </tbody>
+        </table>
+
+        <h2>{% trans "Disk" %}</h2>
+        <table class="listing">
+            <tbody>
+                <tr><th>{% trans "Disk usage" %}</th><td>{{ disk_used }} / {{ disk_total }} ({{ disk_percent }}%)</td></tr>
+                <tr><th>{% trans "Free" %}</th><td>{{ disk_free }}</td></tr>
+                <tr><th>{% trans "Media folder" %}</th><td>{{ media_size }}</td></tr>
+                <tr><th>{% trans "Static folder" %}</th><td>{{ static_size }}</td></tr>
+            </tbody>
+        </table>
+
+    </div>
+{% endblock %}
