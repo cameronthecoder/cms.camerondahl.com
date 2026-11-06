@@ -2,9 +2,10 @@ from django.db import models
 from django.http import Http404
 from wagtail.api import APIField
 from wagtail.models import Page
+from wagtail_headless_preview.models import HeadlessPreviewMixin
 from wagtail.admin.panels import FieldPanel
 
-class HomePage(Page):
+class HomePage(HeadlessPreviewMixin, Page):
     location = models.CharField(max_length=255, blank=True)
     education = models.TextField(blank=True)
     pronouns = models.CharField(max_length=100, blank=True)
@@ -21,7 +22,6 @@ class HomePage(Page):
 
     subpage_types = ['blog.BlogIndexPage', 'about.AboutPage']
 
-    preview_modes = []
 
     def serve(self, request, *args, **kwargs):
         # Headless CMS — this page's data is served via the API, not rendered

@@ -1,0 +1,21 @@
+{% load i18n %}
+<table class="listing">
+    <thead>
+        <tr>
+            <th>{% trans "Method" %}</th>
+            <th>{% trans "Path" %}</th>
+            <th>{% trans "Group" %}</th>
+            <th>{% trans "Summary" %}</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for route in routes %}
+            <tr>
+                <td><code>{{ route.method }}</code></td>
+                <td><code>{{ route.path }}</code></td>
+                <td>{{ route.tag }}</td>
+                <td>{{ route.summary }}</td>
+            </tr>
+        {% endfor %}
+    </tbody>
+</table>

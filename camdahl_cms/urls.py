@@ -1,23 +1,17 @@
 from django.conf import settings
 from django.urls import include, path
-from django.views.generic import RedirectView
 
 from wagtail.admin import urls as wagtailadmin_urls
 from wagtail import urls as wagtail_urls
 from wagtail.documents import urls as wagtaildocs_urls
 
 from .accounts import request_magic_link
-from .api import api_router, WritingsAPIViewSet
+from .api import api
 
 urlpatterns = [
-    path("api/v2/writings/<slug:slug>/", WritingsAPIViewSet.as_view({'get': 'detail_view'}), name="writings-detail-by-slug"),
-    path("api/v2/", api_router.urls),
-    path("admin/login-link/", request_magic_link, name="request_magic_link"),
-    path("admin/", include(wagtailadmin_urls)),
+    path("api/v3/", api.urls),
     path("documents/", include(wagtaildocs_urls)),
-    # Headless CMS — there's nothing to render at the root, so send visitors
-    # straight to the admin instead of a 404.
-    path("", RedirectView.as_view(pattern_name="wagtailadmin_home", permanent=False)),
+    path("login-link/", request_magic_link, name="request_magic_link"),
 ]
 
 
@@ -30,11 +24,13 @@ if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
 
 urlpatterns = urlpatterns + [
-    # For anything not caught by a more specific rule above, hand over to
-    # Wagtail's page serving mechanism. This should be the last pattern in
-    # the list:
+    # The Wagtail admin lives at the site root. It must come after the API,
+    # documents and static/media routes above: the admin ends in its own
+    # `^.*/$` catch-all (login redirect when signed out, 404 when signed in),
+    # so anything listed after it is unreachable.
+    path("", include(wagtailadmin_urls)),
+    # Never actually served (the admin catch-all above wins), but kept so the
+    # "wagtail_serve" route name still reverses — Page.url / get_full_url()
+    # and the v3 API's meta.html_url depend on it.
     path("", include(wagtail_urls)),
-    # Alternatively, if you want Wagtail pages to be served from a subpath
-    # of your site, rather than the site root:
-    #    path("pages/", include(wagtail_urls)),
 ]

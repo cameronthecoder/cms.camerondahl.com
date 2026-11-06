@@ -3,10 +3,13 @@ from html import unescape
 from django.db import models
 from django.utils.html import strip_tags
 from wagtail.models import Page, Orderable
+from wagtail_headless_preview.models import HeadlessPreviewMixin
 from wagtail.snippets.models import register_snippet
 from wagtail.fields import StreamField
 from taggit.models import TaggedItemBase
-from rest_framework import serializers
+from typing import TypedDict
+
+from wagtail.api.v3.fields import FieldSerializer
 from modelcluster.fields import ParentalKey
 from wagtail.documents.blocks import DocumentChooserBlock
 from modelcluster.tags import ClusterTaggableManager
@@ -24,7 +27,7 @@ class VideoBlock(blocks.StructBlock):
         icon = 'media'
 
 
-class BlogIndexPage(Page):
+class BlogIndexPage(HeadlessPreviewMixin, Page):
     intro = models.CharField(max_length=250, blank=True)
 
     content_panels = Page.content_panels + [
@@ -36,7 +39,6 @@ class BlogIndexPage(Page):
     subpage_types = ['BlogPage']
 
     # Preview is disabled: this is a headless CMS with no server-rendered templates.
-    preview_modes = []
 
 class Reference(Orderable):
     page = ParentalKey('BlogPage', on_delete=models.CASCADE, related_name='references')
@@ -76,15 +78,17 @@ class CodeBlock(blocks.StructBlock):
         icon = 'code'
 
 
-class ImageFieldSerializer(serializers.Serializer):
-    id = serializers.IntegerField(read_only=True)
-    title = serializers.CharField(read_only=True)
-    url = serializers.SerializerMethodField()
+class ImageData(TypedDict):
+    id: int
+    title: str
+    url: str
 
-    def get_url(self, obj):
-        if obj:
-            return obj.file.url
-        return None
+
+class ImageFieldSerializer(FieldSerializer):
+    """API v3 representation of an image: id, title and original-file URL."""
+
+    def to_representation(self, value) -> ImageData:
+        return {"id": value.id, "title": value.title, "url": value.file.url}
 
 
 @register_snippet
@@ -178,19 +182,46 @@ class PulledQuote(blocks.StructBlock):
         label = 'Pulled Quote'
 
 
-class AuthorSerializer(serializers.ModelSerializer):
-    avatar = ImageFieldSerializer(read_only=True)
+class AuthorData(TypedDict):
+    id: int
+    name: str
+    bio: str
+    avatar: ImageData | None
+    email: str
+    website: str
+    github: str
 
-    class Meta:
-        model = Author
-        fields = ['id', 'name', 'bio', 'avatar', 'email', 'website', 'github']
 
-class CategorySerializer(serializers.ModelSerializer):
-    class Meta:
-        model = Category
-        fields = ['id', 'name', 'slug', 'description']
+class AuthorSerializer(FieldSerializer):
+    def to_representation(self, value) -> AuthorData:
+        return {
+            "id": value.id,
+            "name": value.name,
+            "bio": value.bio,
+            "avatar": ImageFieldSerializer().to_representation(value.avatar) if value.avatar else None,
+            "email": value.email,
+            "website": value.website,
+            "github": value.github,
+        }
 
-class BlogPage(Page):
+
+class CategoryData(TypedDict):
+    id: int
+    name: str
+    slug: str
+    description: str
+
+
+class CategorySerializer(FieldSerializer):
+    def to_representation(self, value) -> CategoryData:
+        return {
+            "id": value.id,
+            "name": value.name,
+            "slug": value.slug,
+            "description": value.description,
+        }
+
+class BlogPage(HeadlessPreviewMixin, Page):
     date = models.DateField("Post date")
     intro = models.CharField(max_length=250)
     category = models.ForeignKey(
@@ -248,7 +279,6 @@ class BlogPage(Page):
     
     subpage_types = []
 
-    preview_modes = []
 
     content_panels = Page.content_panels + [
         FieldPanel('date'),

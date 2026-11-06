@@ -7,47 +7,17 @@
     {% include "wagtailadmin/shared/header.html" with title=_("API routes") icon="code" %}
 
     <div class="nice-padding">
-        <p>{% trans "Endpoints registered on the Wagtail API router, mounted under" %} <code>/api/v2/</code>.</p>
+        <p>
+            {% trans "Wagtail v3 API, mounted under" %} <code>/api/v3/</code>.
+            {% trans "Interactive docs:" %} <a href="{{ docs_url }}">{{ docs_url }}</a>
+        </p>
 
-        <table class="listing">
-            <thead>
-                <tr>
-                    <th>{% trans "Name" %}</th>
-                    <th>{% trans "Path" %}</th>
-                    <th>{% trans "Model" %}</th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for endpoint in endpoints %}
-                    <tr>
-                        <td>{{ endpoint.name }}</td>
-                        <td><code>/{{ endpoint.path }}</code></td>
-                        <td>{{ endpoint.model_name }}</td>
-                    </tr>
-                {% endfor %}
-            </tbody>
-        </table>
+        <h2>{% trans "Site routes" %}</h2>
+        <p>{% trans "Added by this project in camdahl_cms/api.py." %}</p>
+        {% include "wagtailadmin/api_routes_table.html" with routes=project_routes %}
 
-        {% if extra_routes %}
-            <h2>{% trans "Additional routes" %}</h2>
-            <p>{% trans "Registered by hand alongside the router, not through register_endpoint()." %}</p>
-
-            <table class="listing">
-                <thead>
-                    <tr>
-                        <th>{% trans "Path" %}</th>
-                        <th>{% trans "Description" %}</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for route in extra_routes %}
-                        <tr>
-                            <td><code>/{{ route.path }}</code></td>
-                            <td>{{ route.description }}</td>
-                        </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
-        {% endif %}
+        <h2>{% trans "Wagtail routes" %}</h2>
+        <p>{% trans "Registered by Wagtail and its contrib apps. Write operations require a Bearer API token." %}</p>
+        {% include "wagtailadmin/api_routes_table.html" with routes=wagtail_routes %}
     </div>
 {% endblock %}

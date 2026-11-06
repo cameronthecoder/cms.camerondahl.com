@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## What this is
 
-A headless Wagtail/Django CMS backing camerondahl.com. Content is authored in the Wagtail admin and consumed by a separate frontend over `/api/v2/`; Django itself does not render most of the site as HTML (see "Headless architecture" below).
+A headless Wagtail/Django CMS backing camerondahl.com. Content is authored in the Wagtail admin and consumed by a separate frontend over Wagtail's v3 API at `/api/v3/`; Django itself does not render most of the site as HTML (see "Headless architecture" below).
 
 ## Commands
 
@@ -38,10 +38,19 @@ Both settings files also do `from .local import *` at the very end inside a `try
 
 ## Headless architecture
 
-- `HomePage.serve()` (`home/models.py`) deliberately raises `Http404` — the homepage has no server-rendered template and is only ever consumed via the API. Other page types (`about.AboutPage`, `blog.BlogPage`/`BlogIndexPage`) still render normal Wagtail templates when hit directly, so the site is not fully API-only end to end.
-- `preview_modes = []` is set on every page model, disabling Wagtail's live preview panel (there's no frontend for it to preview into).
-- The API is defined in `camdahl_cms/api.py`: a `WagtailAPIRouter` (`api_router`) registers `pages`, `writings` (blog posts), `images`, and `documents` endpoints under `/api/v2/`. `WritingsAPIViewSet` is a custom `PagesAPIViewSet` scoped to `BlogPage`, filtered to `.live().public()`, ordered by `-date`. It supports slug-based lookup (`/api/v2/writings/<slug>/`) in addition to the router's default `pk`-based route — the slug route is wired by hand in `camdahl_cms/urls.py` since the router only generates `<int:pk>` detail routes.
-- `projects.Technology` and `projects.Project` are Wagtail snippets (not pages, no API endpoint currently registered for them) — they only exist in the admin/DB, not `/api/v2/`.
+- The Wagtail admin is mounted at the site root (`/`), after the API/documents/static routes in `camdahl_cms/urls.py`. The admin ends in its own `^.*/$` catch-all, so Wagtail page serving (`wagtail_urls`, listed after it) is never reached — no page is rendered as HTML by Django. `wagtail_urls` is still included only so the `wagtail_serve` route name reverses (`Page.url`, v3 `meta.html_url`). `HomePage.serve()` additionally raises `Http404`.
+- The API is Wagtail 8.1's v3 API (Django Ninja, `wagtail.api.v3`), mounted at `/api/v3/` with live OpenAPI docs at `/api/v3/docs/`. Wagtail and its contrib apps register `pages`, `images`, `documents`, `redirects`, `sites`, `schema`, `snippets` and `whoami` themselves. Anonymous requests get live, public content; writes (and snippets/sites reads) need an `Authorization: Bearer <token>` API token. There is no v2 API any more (`wagtail.api.v2` and DRF are not in `INSTALLED_APPS`).
+- `camdahl_cms/api.py` adds the site-specific routers to Wagtail's shared `api` instance (they must be added before `api.urls` is accessed): `writings/` (live `BlogPage`s, newest first, full content) and `writings/<slug>/`, `about/` (the single `AboutPage`), and `preview/` (see "Previews" below). Response schemas come from Wagtail's registry (`registry.get(Model._meta.label).read_schema`), so they're generated from each model's `api_fields`.
+- Custom `APIField` serializers (`blog/models.py`: `ImageFieldSerializer`, `AuthorSerializer`, `CategorySerializer`) subclass `wagtail.api.v3.fields.FieldSerializer`, not DRF; the return type hint of `to_representation()` (a `TypedDict`) becomes the OpenAPI schema.
+- The admin's Settings → "API routes" page (`camdahl_cms/views.py`) lists routes from the v3 OpenAPI schema.
+
+## Previews
+
+`wagtail-headless-preview` is installed; every page model mixes in `HeadlessPreviewMixin`. Clicking Preview in the admin stores a `PagePreview` and (with `REDIRECT_ON_PREVIEW`) redirects the preview panel to `WAGTAIL_HEADLESS_PREVIEW["CLIENT_URLS"]["default"]` (env `HEADLESS_PREVIEW_CLIENT_URL`, default `https://camerondahl.com`) as `/?content_type=<app.model>&token=<signed token>`. The frontend must handle that query on its root route and fetch `/api/v3/preview/?content_type=...&token=...`, which returns the draft in the same shape as page detail. The signed token is the only credential, so that endpoint is unauthenticated. The frontend must also allow being framed by the admin's origin (CSP `frame-ancestors`).
+
+## Snippets
+
+`projects.Technology`/`projects.Project` and `blog.Author`/`blog.Category` are Wagtail snippets. v3 exposes them under `/api/v3/snippets/<app.Model>/`, but only to token-authenticated requests.
 
 ## Page tree / app structure
 
@@ -57,7 +66,7 @@ Admin login uses `django-sesame` (URL-token based passwordless login) instead of
 
 - `AUTHENTICATION_BACKENDS` in `base.py` includes both `ModelBackend` (password) and `sesame.backends.ModelBackend`, for dev convenience. `production.py` overrides this to **only** `sesame.backends.ModelBackend` — password authentication is fully disabled in production at the backend level, not just hidden in the UI.
 - `SESAME_MAX_AGE` (15 min) and `SESAME_ONE_TIME = True` in `base.py` make links short-lived and single-use.
-- `camdahl_cms/accounts.py` (`request_magic_link` view, POST-only) looks up a matching active staff user by email and sends them a sign-in link via `django.core.mail`, always returning the same response regardless of whether the email matched (prevents account enumeration). Mounted at `/admin/login-link/` in `camdahl_cms/urls.py`.
+- `camdahl_cms/accounts.py` (`request_magic_link` view, POST-only) looks up a matching active staff user by email and sends them a sign-in link via `django.core.mail`, always returning the same response regardless of whether the email matched (prevents account enumeration). Mounted at `/login-link/` in `camdahl_cms/urls.py`.
 - `camdahl_cms/templates/wagtailadmin/login.html` overrides Wagtail's built-in login template using Django's self-extending-template pattern (`{% extends "wagtailadmin/login.html" %}`, relying on `TEMPLATES["DIRS"]` being searched before app template dirs). It swaps the `furniture` block to show an inline email field instead of the password form, gated by the `magic_link_login_only` context variable (`MAGIC_LINK_LOGIN_ONLY` setting, exposed via `camdahl_cms/context_processors.py`) — `False` in dev (normal password form), `True` in production.
 
 ## Email

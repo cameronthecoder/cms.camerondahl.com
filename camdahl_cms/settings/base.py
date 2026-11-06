@@ -35,7 +35,8 @@ INSTALLED_APPS = [
     "about",
     "projects",
     "blog",
-    "wagtail.api.v2",
+    "wagtail.api.v3",
+    "wagtail_headless_preview",
     "wagtail.contrib.forms",
     "wagtail.contrib.redirects",
     "wagtail.embeds",
@@ -56,7 +57,6 @@ INSTALLED_APPS = [
     "django.contrib.sessions",
     "django.contrib.messages",
     "django.contrib.staticfiles",
-    "rest_framework"
 ]
 
 CORS_ALLOWED_ORIGINS = [
@@ -81,6 +81,18 @@ CORS_ALLOW_HEADERS = [
 ]
 
 WAGTAIL_SITE_NAME = "Cam's CMS"
+
+# Headless previews (wagtail-headless-preview). Clicking "Preview" in the
+# admin redirects the preview panel to the frontend at
+# <client>/?content_type=<app.model>&token=<token>; the frontend then fetches
+# the draft from /api/v3/preview/ with those same two parameters. Override
+# HEADLESS_PREVIEW_CLIENT_URL (e.g. http://localhost:3000) for local dev.
+WAGTAIL_HEADLESS_PREVIEW = {
+    "CLIENT_URLS": {
+        "default": os.environ.get("HEADLESS_PREVIEW_CLIENT_URL", "https://camerondahl.com"),
+    },
+    "REDIRECT_ON_PREVIEW": True,
+}
 
 # Magic-link ("passwordless") login via django-sesame. Password auth
 # (ModelBackend) stays enabled here for local dev convenience; it's removed

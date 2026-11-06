@@ -10,39 +10,42 @@ from django.conf import settings
 from django.db import connection
 from django.shortcuts import render
 
-from .api import api_router
+from .api import api
 
 # Approximates how long this worker process has been running — set once at
 # import time, so each gunicorn worker reports its own start, not a shared
 # "server" uptime.
 WORKER_START_TIME = time.time()
 
-# Extra routes that exist outside api_router (registered by hand in urls.py)
-# and so wouldn't otherwise show up from introspecting the router alone.
-EXTRA_API_ROUTES = [
-    {
-        "path": "api/v2/writings/<slug>/",
-        "description": "Detail view for a single blog post, looked up by slug instead of id.",
-    },
-]
+# Tags for the routes this project adds in api.py, as opposed to the ones
+# Wagtail registers itself. Shown first on the API routes page.
+PROJECT_API_TAGS = ("writings", "about", "preview")
 
 
 def api_routes_view(request):
-    # WagtailAPIRouter has no public accessor for its registered endpoints,
-    # only register_endpoint() to add them — so this reads the same private
-    # dict get_urlpatterns() builds from.
-    endpoints = [
+    # Built from the same OpenAPI schema that /api/v3/docs/ renders, so this
+    # page can't drift from the routes that are actually mounted.
+    schema = api.get_openapi_schema(path_prefix="/api/v3/")
+    routes = [
         {
-            "name": name,
-            "path": f"api/v2/{name}/",
-            "model_name": viewset.model.__name__,
+            "method": method.upper(),
+            "path": path,
+            "tag": (op.get("tags") or [""])[0],
+            "summary": op.get("summary", ""),
         }
-        for name, viewset in sorted(api_router._endpoints.items())
+        for path, ops in schema["paths"].items()
+        for method, op in ops.items()
     ]
+    project_routes = [r for r in routes if r["tag"] in PROJECT_API_TAGS]
+    wagtail_routes = [r for r in routes if r["tag"] not in PROJECT_API_TAGS]
     return render(
         request,
         "wagtailadmin/api_routes.html",
-        {"endpoints": endpoints, "extra_routes": EXTRA_API_ROUTES},
+        {
+            "project_routes": project_routes,
+            "wagtail_routes": wagtail_routes,
+            "docs_url": "/api/v3/docs/",
+        },
     )
 
 
