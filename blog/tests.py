@@ -75,3 +75,50 @@ class CodeHighlightingTests(TestCase):
         page = self.make_post("$x = 1;", language="php")
         # A highlighted PHP variable gets its own styled span.
         self.assertIn("<span", self.stored_code_block(page)["highlighted"])
+
+
+class CodeThemeSettingTests(CodeHighlightingTests):
+    """Theme comes from the CodeHighlightSettings admin setting."""
+
+    def setUp(self):
+        super().setUp()
+        from django.contrib.auth import get_user_model
+
+        self.user = get_user_model().objects.create_superuser("cam", "cam@example.com", "pw")
+
+    def test_default_theme_is_github_light(self):
+        from blog.pygments_styles import BG_DEFAULT
+
+        page = self.make_post("x = 1")
+        self.assertIn(f"background: {BG_DEFAULT}", self.stored_code_block(page)["highlighted"])
+
+    def test_changing_theme_in_admin_rehighlights_live_writings(self):
+        from django.urls import reverse
+        from pygments.styles import get_style_by_name
+
+        page = self.make_post("x = 1")
+        revisions_before = page.revisions.count()
+
+        self.client.force_login(self.user)
+        # The bare settings URL redirects to the singleton's edit view.
+        response = self.client.get(
+            reverse("wagtailsettings:edit", args=["blog", "codehighlightsettings"]), follow=True
+        )
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "GitHub Light")
+        url = response.redirect_chain[-1][0] if response.redirect_chain else response.request["PATH_INFO"]
+        response = self.client.post(url, {"theme": "monokai"})
+        self.assertEqual(response.status_code, 302)
+
+        monokai_bg = get_style_by_name("monokai").background_color
+        self.assertIn(f"background: {monokai_bg}", self.stored_code_block(page)["highlighted"])
+        api_html = self.client.get("/api/v3/writings/post/").json()["body"][0]["value"]["highlighted"]
+        self.assertIn(f"background: {monokai_bg}", api_html)
+        self.assertEqual(page.revisions.count(), revisions_before)  # no new revisions
+
+    def test_removed_theme_falls_back_to_default(self):
+        from blog.models import CodeHighlightSettings, highlight_code
+        from blog.pygments_styles import BG_DEFAULT
+
+        CodeHighlightSettings.objects.update_or_create(defaults={"theme": "no-such-theme"})
+        self.assertIn(f"background: {BG_DEFAULT}", highlight_code("x", "py"))

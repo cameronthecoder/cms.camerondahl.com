@@ -12,7 +12,12 @@ from typing import TypedDict
 from pygments import highlight
 from pygments.formatters import HtmlFormatter
 from pygments.lexers import TextLexer, get_lexer_by_name
+from pygments.styles import get_all_styles
 from pygments.util import ClassNotFound
+from django.db import DatabaseError
+from wagtail.contrib.settings.models import BaseGenericSetting, register_setting
+
+from blog.pygments_styles import GitHubLightStyle
 
 from wagtail.api.v3.fields import FieldSerializer
 from modelcluster.fields import ParentalKey
@@ -62,21 +67,91 @@ class Reference(Orderable):
     ]
 
 
-# Inline styles (noclasses) so the HTML renders highlighted as-is, with no
-# Pygments stylesheet needed on the frontend. Any Pygments style name works.
-CODE_HIGHLIGHT_STYLE = 'default'
-_code_formatter = HtmlFormatter(noclasses=True, style=CODE_HIGHLIGHT_STYLE)
+# Code-block themes: every built-in Pygments style, plus GitHub Light (which
+# Pygments doesn't ship — see blog/pygments_styles.py). Chosen in the admin
+# under Settings → Code highlighting (CodeHighlightSettings below).
+DEFAULT_CODE_THEME = 'github-light'
+CUSTOM_CODE_THEMES = {'github-light': GitHubLightStyle}
 
 
-def highlight_code(code, language):
-    """Return `code` as Pygments-highlighted HTML for the given lexer alias."""
+def code_theme_choices():
+    # A callable, so new Pygments styles show up without a migration.
+    names = [*CUSTOM_CODE_THEMES, *sorted(set(get_all_styles()) - set(CUSTOM_CODE_THEMES))]
+    labels = {'github-light': 'GitHub Light', 'github-dark': 'GitHub Dark'}
+    return [
+        (name, labels.get(name) or name.replace('_', ' ').replace('-', ' ').title())
+        for name in names
+    ]
+
+
+def get_code_theme():
+    """The theme saved in CodeHighlightSettings, or the default."""
+    try:
+        setting = CodeHighlightSettings.base_queryset().first()
+    except DatabaseError:
+        # Table not created yet (e.g. mid-migration).
+        setting = None
+    return setting.theme if setting else DEFAULT_CODE_THEME
+
+
+def highlight_code(code, language, theme=None):
+    """Return `code` as Pygments-highlighted HTML for the given lexer alias.
+
+    Uses inline styles (noclasses), so the HTML renders highlighted as-is with
+    no Pygments stylesheet needed on the frontend.
+    """
+    theme = theme or get_code_theme()
+    style = CUSTOM_CODE_THEMES.get(theme, theme)
+    try:
+        formatter = HtmlFormatter(noclasses=True, style=style)
+    except ClassNotFound:
+        # A saved theme that a Pygments upgrade has since removed.
+        formatter = HtmlFormatter(noclasses=True, style=CUSTOM_CODE_THEMES[DEFAULT_CODE_THEME])
     try:
         # startinline lets PHP snippets highlight without a leading "<?php";
         # other lexers ignore it.
         lexer = get_lexer_by_name(language or '', startinline=True)
     except ClassNotFound:
         lexer = TextLexer()
-    return highlight(code or '', lexer, _code_formatter)
+    return highlight(code or '', lexer, formatter)
+
+
+@register_setting(icon='code')
+class CodeHighlightSettings(BaseGenericSetting):
+    theme = models.CharField(
+        max_length=50,
+        choices=code_theme_choices,
+        default=DEFAULT_CODE_THEME,
+        help_text='Syntax-highlighting colours for code blocks in writings. '
+                  'Saving a new theme re-highlights every published writing.',
+    )
+
+    panels = [FieldPanel('theme')]
+
+    class Meta:
+        verbose_name = 'Code highlighting'
+
+    def save(self, *args, **kwargs):
+        previous = type(self).objects.filter(pk=self.pk).values_list('theme', flat=True).first()
+        super().save(*args, **kwargs)
+        if previous != self.theme:
+            rehighlight_writings()
+
+
+def rehighlight_writings():
+    """Regenerate the stored highlighted HTML in every writing's code blocks.
+
+    Writes the body directly (queryset.update) rather than page.save(), so it
+    doesn't create revisions or touch published/updated timestamps. Unsaved
+    drafts pick up the theme the next time they're saved or previewed.
+    """
+    for page in BlogPage.objects.all():
+        if not any(block.block_type == 'code' for block in page.body):
+            continue
+        # Iterating above converted every block, so get_prep_value() now
+        # re-runs CodeBlock.get_prep_value() instead of passing the stored
+        # raw JSON (with the old HTML) straight through.
+        BlogPage.objects.filter(pk=page.pk).update(body=page.body)
 
 
 class CodeBlock(blocks.StructBlock):

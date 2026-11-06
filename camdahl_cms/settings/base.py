@@ -38,6 +38,7 @@ INSTALLED_APPS = [
     "wagtail.api.v3",
     "wagtail_headless_preview",
     "wagtail.contrib.forms",
+    "wagtail.contrib.settings",
     "wagtail.contrib.redirects",
     "wagtail.embeds",
     "wagtail.sites",
