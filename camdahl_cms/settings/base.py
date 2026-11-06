@@ -89,8 +89,7 @@ WAGTAIL_SITE_NAME = "Cam's CMS"
 # HEADLESS_PREVIEW_CLIENT_URL (e.g. http://localhost:3000) for local dev.
 WAGTAIL_HEADLESS_PREVIEW = {
     "CLIENT_URLS": {
-        "default": os.environ.get("HEADLESS_PREVIEW_CLIENT_URL", "https://camerondahl.com/preview"),
-        "blog.BlogPage": os.environ.get("HEADLESS_PREVIEW_CLIENT_URL", "https://camerondahl.com/preview/writings"),
+        "default": os.environ.get("HEADLESS_PREVIEW_CLIENT_URL", "https://camerondahl.com/preview/writings/"),
     },
     "REDIRECT_ON_PREVIEW": True,
 }
