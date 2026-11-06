@@ -23,7 +23,7 @@ from wagtail.api.v3.fields import FieldSerializer
 from modelcluster.fields import ParentalKey
 from wagtail.documents.blocks import DocumentChooserBlock
 from modelcluster.tags import ClusterTaggableManager
-from wagtail.admin.panels import FieldPanel, InlinePanel
+from wagtail.admin.panels import FieldPanel, InlinePanel, Panel
 from wagtail import blocks
 from wagtail.api import APIField
 from wagtail.images.blocks import ImageChooserBlock
@@ -116,6 +116,41 @@ def highlight_code(code, language, theme=None):
     return highlight(code or '', lexer, formatter)
 
 
+CODE_THEME_PREVIEW_SAMPLE = '''\
+@dataclass
+class Writing:
+    """A post on camerondahl.com."""
+    title: str
+    words: int = 0
+
+    def reading_time(self) -> int:
+        # ~200 words per minute, at least one
+        return max(1, round(self.words / 200))
+
+posts = [Writing("Hello <world>", words=1_250)]
+print(f"{posts[0].title}: {posts[0].reading_time()} min", True, None)
+'''
+
+
+class CodeThemePreviewPanel(Panel):
+    """Shows the sample snippet highlighted in each theme; the one matching the
+    theme dropdown is visible and swaps as the selection changes (no save
+    needed to compare)."""
+
+    class BoundPanel(Panel.BoundPanel):
+        template_name = 'blog/panels/code_theme_preview.html'
+
+        def get_context_data(self, parent_context=None):
+            context = super().get_context_data(parent_context)
+            context['current_theme'] = getattr(self.instance, 'theme', None) or DEFAULT_CODE_THEME
+            context['previews'] = [
+                {'theme': name, 'label': label,
+                 'html': highlight_code(CODE_THEME_PREVIEW_SAMPLE, 'py', theme=name)}
+                for name, label in code_theme_choices()
+            ]
+            return context
+
+
 @register_setting(icon='code')
 class CodeHighlightSettings(BaseGenericSetting):
     theme = models.CharField(
@@ -126,7 +161,10 @@ class CodeHighlightSettings(BaseGenericSetting):
                   'Saving a new theme re-highlights every published writing.',
     )
 
-    panels = [FieldPanel('theme')]
+    panels = [
+        FieldPanel('theme'),
+        CodeThemePreviewPanel(heading='Preview'),
+    ]
 
     class Meta:
         verbose_name = 'Code highlighting'

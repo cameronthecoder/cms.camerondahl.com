@@ -106,6 +106,11 @@ class CodeThemeSettingTests(CodeHighlightingTests):
         )
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, "GitHub Light")
+        # Preview panel: one sample per theme, only the saved theme visible.
+        self.assertContains(response, "data-code-theme-preview")
+        self.assertContains(response, '<div data-theme="github-light" >')
+        self.assertContains(response, '<div data-theme="monokai" hidden>')
+        self.assertContains(response, "Hello &lt;world&gt;")
         url = response.redirect_chain[-1][0] if response.redirect_chain else response.request["PATH_INFO"]
         response = self.client.post(url, {"theme": "monokai"})
         self.assertEqual(response.status_code, 302)

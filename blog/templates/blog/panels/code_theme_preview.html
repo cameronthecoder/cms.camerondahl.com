@@ -1,0 +1,38 @@
+{# Every theme's preview is rendered up front; only the selected one is shown. #}
+<div class="code-theme-preview" data-code-theme-preview>
+    {% for preview in previews %}
+        <div data-theme="{{ preview.theme }}" {% if preview.theme != current_theme %}hidden{% endif %}>
+            {{ preview.html|safe }}
+        </div>
+    {% endfor %}
+    <p class="help">Sample Python, as it will appear in writings' code blocks. Changes apply when you save.</p>
+</div>
+
+<style>
+    .code-theme-preview .highlight {
+        border-radius: 6px;
+        overflow-x: auto;
+    }
+    .code-theme-preview .highlight pre {
+        margin: 0;
+        padding: 1rem;
+        font-size: 0.875rem;
+        background: transparent;
+    }
+</style>
+
+<script>
+    (function () {
+        var preview = document.querySelector("[data-code-theme-preview]");
+        var form = preview && preview.closest("form");
+        var select = form && form.querySelector('select[name="theme"]');
+        if (!select) return;
+        function show() {
+            preview.querySelectorAll("[data-theme]").forEach(function (el) {
+                el.hidden = el.dataset.theme !== select.value;
+            });
+        }
+        select.addEventListener("change", show);
+        show();
+    })();
+</script>
