@@ -9,6 +9,11 @@ from wagtail.fields import StreamField
 from taggit.models import TaggedItemBase
 from typing import TypedDict
 
+from pygments import highlight
+from pygments.formatters import HtmlFormatter
+from pygments.lexers import TextLexer, get_lexer_by_name
+from pygments.util import ClassNotFound
+
 from wagtail.api.v3.fields import FieldSerializer
 from modelcluster.fields import ParentalKey
 from wagtail.documents.blocks import DocumentChooserBlock
@@ -57,6 +62,23 @@ class Reference(Orderable):
     ]
 
 
+# Inline styles (noclasses) so the HTML renders highlighted as-is, with no
+# Pygments stylesheet needed on the frontend. Any Pygments style name works.
+CODE_HIGHLIGHT_STYLE = 'default'
+_code_formatter = HtmlFormatter(noclasses=True, style=CODE_HIGHLIGHT_STYLE)
+
+
+def highlight_code(code, language):
+    """Return `code` as Pygments-highlighted HTML for the given lexer alias."""
+    try:
+        # startinline lets PHP snippets highlight without a leading "<?php";
+        # other lexers ignore it.
+        lexer = get_lexer_by_name(language or '', startinline=True)
+    except ClassNotFound:
+        lexer = TextLexer()
+    return highlight(code or '', lexer, _code_formatter)
+
+
 class CodeBlock(blocks.StructBlock):
     language = blocks.ChoiceBlock(choices=[
         ('py', 'Python'),
@@ -76,6 +98,40 @@ class CodeBlock(blocks.StructBlock):
 
     class Meta:
         icon = 'code'
+
+    # Pygments-highlighted HTML is computed in get_prep_value(), which runs
+    # whenever the StreamField is written: page saves and publishes, draft
+    # revisions, and previews. It's stored alongside `language`/`code` under
+    # this key, but isn't a child block, so editors never see or edit it —
+    # it's always regenerated from the current code. On load it's carried on
+    # the StructValue as an attribute rather than a dict key, since
+    # StructBlock looks every key up in child_blocks.
+    HIGHLIGHTED_KEY = 'highlighted'
+
+    def get_prep_value(self, value):
+        prep = super().get_prep_value(value)
+        prep[self.HIGHLIGHTED_KEY] = highlight_code(value.get('code', ''), value.get('language'))
+        return prep
+
+    def to_python(self, value):
+        struct_value = super().to_python(value)
+        struct_value.highlighted = value.get(self.HIGHLIGHTED_KEY)
+        return struct_value
+
+    def bulk_to_python(self, values):
+        struct_values = super().bulk_to_python(values)
+        for struct_value, raw in zip(struct_values, values):
+            struct_value.highlighted = raw.get(self.HIGHLIGHTED_KEY)
+        return struct_values
+
+    def get_api_representation(self, value, context=None):
+        representation = super().get_api_representation(value, context)
+        # Fall back to highlighting on the fly for values that haven't been
+        # saved since this was added (or were built in memory, not loaded).
+        representation[self.HIGHLIGHTED_KEY] = getattr(value, 'highlighted', None) or highlight_code(
+            value.get('code', ''), value.get('language')
+        )
+        return representation
 
 
 class ImageData(TypedDict):

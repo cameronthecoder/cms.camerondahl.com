@@ -1,5 +1,6 @@
 import datetime
 
+from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
@@ -93,7 +94,8 @@ class HeadlessPreviewTests(SiteTreeMixin, TestCase):
 
         self.assertEqual(response.status_code, 302)
         location = response["Location"]
-        self.assertTrue(location.startswith("https://camerondahl.com/?"), location)
+        client_url = settings.WAGTAIL_HEADLESS_PREVIEW["CLIENT_URLS"]["default"].rstrip("/") + "/"
+        self.assertTrue(location.startswith(client_url + "?"), location)
 
         query = location.split("?", 1)[1]
         self.client.logout()  # the frontend calls the API anonymously
