@@ -1,6 +1,8 @@
 from html import unescape
 
+from django import forms
 from django.db import models
+from django.utils.functional import cached_property
 from django.utils.html import strip_tags
 from wagtail.models import Page, Orderable
 from wagtail_headless_preview.models import HeadlessPreviewMixin
@@ -18,6 +20,7 @@ from django.db import DatabaseError
 from wagtail.contrib.settings.models import BaseGenericSetting, register_setting
 
 from blog.pygments_styles import GitHubLightStyle
+from blog.widgets import CodeEditorWidget
 
 from wagtail.api.v3.fields import FieldSerializer
 from modelcluster.fields import ParentalKey
@@ -194,6 +197,14 @@ def rehighlight_writings():
         BlogPage.objects.filter(pk=page.pk).update(body=page.body)
 
 
+class CodeTextBlock(blocks.TextBlock):
+    """TextBlock edited with CodeMirror (blog/widgets.py) instead of a plain textarea."""
+
+    @cached_property
+    def field(self):
+        return forms.CharField(widget=CodeEditorWidget(), **self.field_options)
+
+
 class CodeBlock(blocks.StructBlock):
     language = blocks.ChoiceBlock(choices=[
         ('py', 'Python'),
@@ -209,7 +220,7 @@ class CodeBlock(blocks.StructBlock):
         ('swift', 'Swift'),
         ('kotlin', 'Kotlin'),
     ], default='py')
-    code = blocks.TextBlock()
+    code = CodeTextBlock()
 
     class Meta:
         icon = 'code'

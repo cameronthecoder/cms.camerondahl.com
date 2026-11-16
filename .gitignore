@@ -26,3 +26,4 @@ camdahl_cms/settings/local.py
 .idea/
 .vscode/
 db.sqlite3.backup-*
+node_modules/
