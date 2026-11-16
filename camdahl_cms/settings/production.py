@@ -16,6 +16,10 @@ ALLOWED_HOSTS = os.environ["ALLOWED_HOSTS"].split(",")
 if csrf_trusted_origins := os.environ.get("CSRF_TRUSTED_ORIGINS"):
     CSRF_TRUSTED_ORIGINS = csrf_trusted_origins.split(",")
 
+# The CMS's own public origin (see base.py). Header images and avatars are
+# serialized without a request, so production always needs this set.
+WAGTAILAPI_BASE_URL = os.environ.get("WAGTAILAPI_BASE_URL", "https://cms.camerondahl.com")
+
 # Required — production must use a real database, not the SQLite fallback
 # in base.py (SQLite doesn't survive redeploys on most hosting platforms).
 if "DATABASE_URL" not in os.environ:

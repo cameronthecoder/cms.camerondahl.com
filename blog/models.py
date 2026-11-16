@@ -26,7 +26,9 @@ from modelcluster.tags import ClusterTaggableManager
 from wagtail.admin.panels import FieldPanel, InlinePanel, Panel
 from wagtail import blocks
 from wagtail.api import APIField
-from wagtail.images.blocks import ImageChooserBlock
+from wagtail.api.utils import get_full_url
+from wagtail.images.blocks import ImageBlock
+from wagtail.images.models import SourceImageIOError
 
 class VideoBlock(blocks.StructBlock):
     video_url = blocks.URLBlock(help_text="YouTube or Vimeo URL")
@@ -247,17 +249,101 @@ class CodeBlock(blocks.StructBlock):
         return representation
 
 
+# Widths of the resized copies returned with every image, for a frontend
+# srcset. Wagtail never upscales, so small images just get fewer/smaller ones.
+IMAGE_RENDITION_WIDTHS = (640, 1280, 1920)
+
+
+class RenditionData(TypedDict):
+    width: int
+    height: int
+    url: str
+
+
 class ImageData(TypedDict):
     id: int
     title: str
     url: str
+    width: int
+    height: int
+    alt: str
+    renditions: list[RenditionData]
+
+
+def image_api_data(image, request=None, alt=None) -> ImageData:
+    """The API representation shared by every image the frontend displays.
+
+    URLs are absolute: from the request when there is one, otherwise from the
+    WAGTAILAPI_BASE_URL setting (the frontend lives on a different domain, so
+    a bare /media/... path wouldn't load there).
+    """
+    renditions = []
+    seen = set()
+    for width in IMAGE_RENDITION_WIDTHS:
+        try:
+            rendition = image.get_rendition(f'width-{width}')
+        except (SourceImageIOError, OSError):
+            # Missing or unreadable original file: still return the rest.
+            break
+        if rendition.width in seen:  # image narrower than this width
+            break
+        seen.add(rendition.width)
+        renditions.append({
+            'width': rendition.width,
+            'height': rendition.height,
+            'url': get_full_url(request, rendition.url),
+        })
+    return {
+        'id': image.id,
+        'title': image.title,
+        'url': get_full_url(request, image.file.url),
+        'width': image.width,
+        'height': image.height,
+        'alt': image.default_alt_text if alt is None else alt,
+        'renditions': renditions,
+    }
 
 
 class ImageFieldSerializer(FieldSerializer):
-    """API v3 representation of an image: id, title and original-file URL."""
+    """API v3 representation of an image (header images, author avatars)."""
 
     def to_representation(self, value) -> ImageData:
-        return {"id": value.id, "title": value.title, "url": value.file.url}
+        return image_api_data(value)
+
+
+class WritingImageBlock(blocks.StructBlock):
+    """An image in a writing's body: the image with alt text (or marked
+    decorative), plus an optional caption."""
+
+    image = ImageBlock()
+    caption = blocks.CharBlock(required=False, help_text='Optional, shown below the image.')
+
+    class Meta:
+        icon = 'image'
+        label = 'Image'
+
+    def get_api_representation(self, value, context=None):
+        image = value['image']
+        if image is None:
+            return None
+        request = (context or {}).get('request')
+        return {
+            **image_api_data(image, request, alt=image.contextual_alt_text or ''),
+            'decorative': bool(image.decorative),
+            'caption': value['caption'],
+        }
+
+
+class QuoteBlock(blocks.StructBlock):
+    """A quotation, optionally attributed and linked to where it's from."""
+
+    text = blocks.TextBlock()
+    attribution = blocks.CharBlock(required=False, help_text='Who said or wrote it.')
+    source_url = blocks.URLBlock(required=False, label='Source link')
+
+    class Meta:
+        icon = 'openquote'
+        label = 'Quote'
 
 
 @register_snippet
@@ -342,15 +428,6 @@ class SizedRichTextBlock(blocks.StructBlock):
         template = 'blocks/sized_rich_text_block.html'
         label = 'Sized Paragraph'
 
-class PulledQuote(blocks.StructBlock):
-    author = blocks.TextBlock(required=False)
-    source = blocks.TextBlock()
-    
-    class Meta:
-        icon = 'openquote'
-        label = 'Pulled Quote'
-
-
 class AuthorData(TypedDict):
     id: int
     name: str
@@ -418,10 +495,9 @@ class BlogPage(HeadlessPreviewMixin, Page):
     body = StreamField([
         ('heading', blocks.CharBlock(form_classname="title")),
         ('paragraph', SizedRichTextBlock()),
-        ('image', ImageChooserBlock()),
-        ('pull_quote', PulledQuote()),
+        ('image', WritingImageBlock()),
         ('code', CodeBlock(form_classname="textarea")),
-        ('quote', blocks.BlockQuoteBlock()),
+        ('quote', QuoteBlock()),
         ('video', VideoBlock()),
         ('file', DocumentChooserBlock()),
     ], use_json_field=True)
@@ -436,10 +512,8 @@ class BlogPage(HeadlessPreviewMixin, Page):
                 text = str(block.value)
             elif block.block_type == 'paragraph':
                 text = strip_tags(str(block.value['text']))
-            elif block.block_type == 'pull_quote':
-                text = str(block.value['source'])
             elif block.block_type == 'quote':
-                text = strip_tags(str(block.value))
+                text = str(block.value['text'])
             else:
                 # image, code, video and file blocks are not read at prose speed
                 continue

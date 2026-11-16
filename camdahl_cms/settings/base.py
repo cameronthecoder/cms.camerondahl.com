@@ -314,6 +314,11 @@ WAGTAILSEARCH_BACKENDS = {
     }
 }
 
+# Absolute base for URLs the API returns (images, documents, detail_url).
+# Media is served from the CMS host, not the frontend, so the frontend needs
+# full URLs. Unset: built from each request's host where one is available.
+WAGTAILAPI_BASE_URL = os.environ.get("WAGTAILAPI_BASE_URL") or None
+
 # Base URL to use when referring to full URLs within the Wagtail admin backend -
 # e.g. in notification emails. Don't include '/admin' or a trailing slash
 WAGTAILADMIN_BASE_URL = "https://camerondahl.com"

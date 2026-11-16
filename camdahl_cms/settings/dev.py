@@ -14,6 +14,9 @@ SECRET_KEY = os.environ.get(
 
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "*").split(",")
 
+# Absolute URLs in API responses point at the local runserver (see base.py).
+WAGTAILAPI_BASE_URL = os.environ.get("WAGTAILAPI_BASE_URL", "http://127.0.0.1:8000")
+
 # Prints emails to the console by default. Set EMAIL_BACKEND (and the rest
 # of the EMAIL_* vars below) in .env to test against a real SMTP server.
 EMAIL_BACKEND = os.environ.get(

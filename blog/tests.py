@@ -127,3 +127,75 @@ class CodeThemeSettingTests(CodeHighlightingTests):
 
         CodeHighlightSettings.objects.update_or_create(defaults={"theme": "no-such-theme"})
         self.assertIn(f"background: {BG_DEFAULT}", highlight_code("x", "py"))
+
+
+class QuoteAndImageBlockTests(CodeHighlightingTests):
+    def make_body_post(self, body):
+        return self.index.add_child(instance=BlogPage(
+            title="Body", slug="body", date=datetime.date(2026, 1, 1), intro="x", body=body,
+        ))
+
+    def test_quote_api_shape_and_reading_time(self):
+        self.make_body_post([("quote", {
+            "text": "Facts are out, feelings are in.", "attribution": "Cam",
+            "source_url": "https://example.com/",
+        })])
+        data = self.client.get("/api/v3/writings/body/").json()
+        self.assertEqual(data["body"][0], {**data["body"][0], "type": "quote", "value": {
+            "text": "Facts are out, feelings are in.", "attribution": "Cam",
+            "source_url": "https://example.com/",
+        }})
+        self.assertEqual(data["reading_time"], 1)
+
+    def test_image_block_api_shape(self):
+        from wagtail.images.tests.utils import get_test_image_file
+        from wagtail.images import get_image_model
+
+        image = get_image_model().objects.create(
+            title="Photo", file=get_test_image_file(size=(1000, 500))
+        )
+        image.contextual_alt_text = "A test photo"
+        image.decorative = False
+        page = self.make_body_post([("image", {"image": image, "caption": "Caption here"})])
+        page.image = image
+        page.save()
+
+        data = self.client.get("/api/v3/writings/body/").json()
+        value = data["body"][0]["value"]
+        self.assertEqual(value["alt"], "A test photo")
+        self.assertEqual(value["caption"], "Caption here")
+        self.assertFalse(value["decorative"])
+        self.assertEqual((value["width"], value["height"]), (1000, 500))
+        self.assertTrue(value["url"].startswith("http://127.0.0.1:8000/media/"), value["url"])
+        # 1000px original: a 640 rendition, then width-1280 caps at the
+        # original 1000px (Wagtail never upscales) and 1920 is skipped.
+        self.assertEqual([r["width"] for r in value["renditions"]], [640, 1000])
+
+        header = data["image"]
+        self.assertTrue(header["url"].startswith("http://127.0.0.1:8000/media/"), header["url"])
+        self.assertEqual(header["alt"], "Photo")  # default alt: the title
+
+
+class StreamMigrationOperationTests(TestCase):
+    def test_quotes_merge(self):
+        from blog.stream_migrations import MergeQuoteBlocksOperation
+
+        out = MergeQuoteBlocksOperation().apply([
+            {"type": "pull_quote", "value": {"author": "Cam", "source": "Hi"}, "id": "a"},
+            {"type": "quote", "value": "Plain", "id": "b"},
+            {"type": "quote", "value": {"text": "Done", "attribution": "", "source_url": ""}, "id": "c"},
+            {"type": "heading", "value": "Keep", "id": "d"},
+        ])
+        self.assertEqual([b["type"] for b in out], ["quote", "quote", "quote", "heading"])
+        self.assertEqual(out[0]["value"], {"text": "Hi", "attribution": "Cam", "source_url": ""})
+        self.assertEqual(out[1]["value"], {"text": "Plain", "attribution": "", "source_url": ""})
+        self.assertEqual(out[2]["value"]["text"], "Done")
+        self.assertEqual(out[0]["id"], "a")
+
+    def test_image_ids_convert(self):
+        from blog.stream_migrations import ImageChooserToWritingImageOperation
+
+        op = ImageChooserToWritingImageOperation()
+        self.assertEqual(op.apply(None)["image"]["image"], None)
+        already = {"image": {"image": 1, "alt_text": "x", "decorative": False}, "caption": ""}
+        self.assertIs(op.apply(already), already)
