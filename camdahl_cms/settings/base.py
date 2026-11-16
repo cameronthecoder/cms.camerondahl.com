@@ -105,6 +105,13 @@ AUTHENTICATION_BACKENDS = [
 SESAME_MAX_AGE = 60 * 15  # Links expire after 15 minutes.
 SESAME_ONE_TIME = True  # Links can only be used once.
 
+# Rate limits for requesting a sign-in link (camdahl_cms/accounts.py), counted
+# over a rolling window. Over the limit, the request gets the usual "check
+# your inbox" response but no email is sent.
+LOGIN_LINK_WINDOW = SESAME_MAX_AGE  # seconds
+LOGIN_LINK_MAX_PER_EMAIL = int(os.environ.get("LOGIN_LINK_MAX_PER_EMAIL", "3"))
+LOGIN_LINK_MAX_PER_IP = int(os.environ.get("LOGIN_LINK_MAX_PER_IP", "10"))
+
 # Hides the password form on the admin login page in favour of the magic-link
 # request flow. Overridden to True in production.py. See
 # camdahl_cms/templates/wagtailadmin/login.html.

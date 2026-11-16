@@ -137,3 +137,81 @@ def _edit_form_data(page):
         "references-MIN_NUM_FORMS": "0",
         "references-MAX_NUM_FORMS": "1000",
     }
+
+
+class MagicLinkEmailTests(TestCase):
+    def test_email_has_request_and_expiry_timestamps(self):
+        from datetime import datetime, timezone as dt_timezone
+        from unittest import mock
+
+        from django.core import mail
+
+        get_user_model().objects.create_user(
+            "cam", "cam@example.com", "pw", is_staff=True
+        )
+        fixed = datetime(2026, 11, 8, 14, 32, 5, tzinfo=dt_timezone.utc)
+        with mock.patch("camdahl_cms.accounts.timezone.now", return_value=fixed):
+            self.client.post("/login-link/", {"email": "CAM@example.com"})
+
+        self.assertEqual(len(mail.outbox), 1)
+        email = mail.outbox[0]
+        self.assertEqual(email.subject, "Your sign-in link (14:32 UTC)")
+        self.assertIn("Requested: Sun 8 Nov 2026, 14:32:05 UTC", email.body)
+        self.assertIn("Expires:   Sun 8 Nov 2026, 14:47:05 UTC", email.body)
+        self.assertIn("expires in 15 minutes", email.body)
+        self.assertIn("http://testserver/?sesame=", email.body)
+
+    def test_no_email_for_unknown_address(self):
+        from django.core import mail
+
+        self.client.post("/login-link/", {"email": "nobody@example.com"})
+        self.assertEqual(len(mail.outbox), 0)
+
+
+class LoginLinkRateLimitTests(TestCase):
+    def setUp(self):
+        get_user_model().objects.create_user("cam", "cam@example.com", "pw", is_staff=True)
+
+    def request_link(self, email="cam@example.com", **extra):
+        response = self.client.post("/login-link/", {"email": email}, **extra)
+        self.assertEqual(response.status_code, 302)  # same response either way
+        return response
+
+    def test_per_email_limit(self):
+        from django.core import mail
+
+        for _ in range(5):
+            self.request_link(email="CAM@example.com")
+        self.assertEqual(len(mail.outbox), settings.LOGIN_LINK_MAX_PER_EMAIL)
+
+    def test_unknown_emails_count_towards_ip_limit(self):
+        from django.core import mail
+
+        for i in range(settings.LOGIN_LINK_MAX_PER_IP):
+            self.request_link(email=f"nobody{i}@example.com")
+        self.request_link()
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_ip_comes_from_nginx_behind_loopback(self):
+        from django.core import mail
+
+        for i in range(settings.LOGIN_LINK_MAX_PER_IP):
+            self.request_link(email=f"x{i}@example.com", HTTP_X_FORWARDED_FOR="203.0.113.9")
+        # A different visitor (nginx's appended entry is rightmost) still gets through,
+        # even if they put the blocked address first.
+        self.request_link(HTTP_X_FORWARDED_FOR="203.0.113.9, 198.51.100.7")
+        self.assertEqual(len(mail.outbox), 1)
+
+    def test_limit_resets_after_window(self):
+        from datetime import timedelta
+        from unittest import mock
+
+        from django.core import mail
+        from django.utils import timezone
+
+        for _ in range(settings.LOGIN_LINK_MAX_PER_EMAIL):
+            self.request_link()
+        later = timezone.now() + timedelta(seconds=settings.LOGIN_LINK_WINDOW + 1)
+        with mock.patch("django.utils.timezone.now", return_value=later):
+            self.request_link()
+        self.assertEqual(len(mail.outbox), settings.LOGIN_LINK_MAX_PER_EMAIL + 1)
