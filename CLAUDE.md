@@ -43,6 +43,7 @@ Both settings files also do `from .local import *` at the very end inside a `try
 - `camdahl_cms/api.py` adds the site-specific routers to Wagtail's shared `api` instance (they must be added before `api.urls` is accessed): `writings/` (live `BlogPage`s, newest first, full content) and `writings/<slug>/`, `about/` (the single `AboutPage`), and `preview/` (see "Previews" below). Response schemas come from Wagtail's registry (`registry.get(Model._meta.label).read_schema`), so they're generated from each model's `api_fields`.
 - Custom `APIField` serializers (`blog/models.py`: `ImageFieldSerializer`, `AuthorSerializer`, `CategorySerializer`) subclass `wagtail.api.v3.fields.FieldSerializer`, not DRF; the return type hint of `to_representation()` (a `TypedDict`) becomes the OpenAPI schema.
 - The admin's Settings → "API routes" page (`camdahl_cms/views.py`) lists routes from the v3 OpenAPI schema.
+- Settings → "How it works" (`how_it_works_view`, template `camdahl_cms/templates/wagtailadmin/how_it_works.html`) is a plain-language guide to the whole system for whoever runs the CMS. Configuration-dependent facts (preview URL, API base URL, login mode and limits, email backend, code theme, content counts) are read live in the view; the prose is static. Update it when behaviour it describes changes.
 
 ## Previews
 

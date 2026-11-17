@@ -122,3 +122,61 @@ def server_health_view(request):
         "worker_uptime": _humanize_duration(time.time() - WORKER_START_TIME),
     }
     return render(request, "wagtailadmin/server_health.html", context)
+
+
+def how_it_works_view(request):
+    # Static explanation lives in the template; anything that depends on
+    # configuration or content is looked up here, so the page can't drift
+    # from how this deployment is actually set up.
+    from django.urls import NoReverseMatch, reverse
+
+    from about.models import AboutPage
+    from blog.models import Author, BlogPage, Category, CodeHighlightSettings
+    from projects.models import Project, Technology
+
+    def admin_url(name, *args):
+        try:
+            return reverse(name, args=args)
+        except NoReverseMatch:
+            return None
+
+    def snippet_url(model):
+        return admin_url(f"wagtailsnippets_{model._meta.app_label}_{model._meta.model_name}:list")
+
+    posts = BlogPage.objects.all()
+    about = AboutPage.objects.first()
+    context = {
+        "api_root": "/api/v3/",
+        "docs_url": "/api/v3/docs/",
+        "api_base_url": getattr(settings, "WAGTAILAPI_BASE_URL", None),
+        "preview_client_url": settings.WAGTAIL_HEADLESS_PREVIEW["CLIENT_URLS"]["default"],
+        "magic_link_only": settings.MAGIC_LINK_LOGIN_ONLY,
+        "link_minutes": settings.SESAME_MAX_AGE // 60,
+        "max_per_email": settings.LOGIN_LINK_MAX_PER_EMAIL,
+        "max_per_ip": settings.LOGIN_LINK_MAX_PER_IP,
+        "email_backend": settings.EMAIL_BACKEND.rsplit(".", 1)[-1],
+        "error_emails_on": bool(settings.ADMINS) and not settings.DEBUG,
+        "debug": settings.DEBUG,
+        "code_theme": CodeHighlightSettings.load(request_or_site=request).get_theme_display(),
+        "counts": {
+            "live_posts": posts.live().count(),
+            "draft_posts": posts.not_live().count(),
+            "unpublished_changes": posts.live().filter(has_unpublished_changes=True).count(),
+            "authors": Author.objects.count(),
+            "categories": Category.objects.count(),
+            "projects": Project.objects.count(),
+            "technologies": Technology.objects.count(),
+        },
+        "links": {
+            "explorer": admin_url("wagtailadmin_explore_root"),
+            "about": admin_url("wagtailadmin_pages:edit", about.pk) if about else None,
+            "authors": snippet_url(Author),
+            "categories": snippet_url(Category),
+            "projects": snippet_url(Project),
+            "technologies": snippet_url(Technology),
+            "code_theme": admin_url("wagtailsettings:edit", "blog", "codehighlightsettings"),
+            "api_routes": admin_url("api_routes"),
+            "server_health": admin_url("server_health"),
+        },
+    }
+    return render(request, "wagtailadmin/how_it_works.html", context)

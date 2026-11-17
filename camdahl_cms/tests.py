@@ -118,6 +118,15 @@ class AdminAtRootTests(SiteTreeMixin, TestCase):
         self.assertEqual(self.client.get("/").status_code, 200)
         self.assertEqual(self.client.get(reverse("api_routes")).status_code, 200)
 
+    def test_how_it_works_page(self):
+        user = get_user_model().objects.create_superuser("cam", "cam@example.com", "pw")
+        self.client.force_login(user)
+        response = self.client.get(reverse("how_it_works"))
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Always restart gunicorn after migrating")
+        self.assertContains(response, settings.WAGTAIL_HEADLESS_PREVIEW["CLIENT_URLS"]["default"])
+        self.assertContains(response, reverse("how_it_works"))  # in the Settings menu
+
     def test_magic_link_route_moved(self):
         self.assertEqual(reverse("request_magic_link"), "/login-link/")
         self.assertEqual(self.client.post("/login-link/", {"email": "x@example.com"}).status_code, 302)

@@ -1,0 +1,206 @@
+{% extends "wagtailadmin/base.html" %}
+{% load i18n %}
+
+{% block titletag %}{% trans "How it works" %}{% endblock %}
+
+{% block extra_css %}
+    {{ block.super }}
+    <style>
+        .how-it-works { max-width: 52rem; }
+        .how-it-works h2 { margin-top: 2.5rem; }
+        .how-it-works h3 { margin-top: 1.5rem; }
+        .how-it-works li { margin-bottom: 0.35rem; }
+        .how-it-works .toc { columns: 2; padding-inline-start: 1.25rem; }
+        .how-it-works .facts { width: auto; margin: 1rem 0; }
+        .how-it-works .facts th { text-align: start; padding-inline-end: 2rem; font-weight: 600; white-space: nowrap; }
+        .how-it-works .facts td, .how-it-works .facts th { padding-block: 0.35rem; vertical-align: top; }
+        .how-it-works .callout {
+            border-inline-start: 4px solid var(--w-color-warning-100, #faa500);
+            background: var(--w-color-surface-page, #f6f6f8);
+            padding: 0.75rem 1rem;
+            margin: 1rem 0;
+        }
+        .how-it-works pre { white-space: pre-wrap; }
+    </style>
+{% endblock %}
+
+{% block content %}
+    {% include "wagtailadmin/shared/header.html" with title=_("How it works") icon="help" %}
+
+    <div class="nice-padding how-it-works">
+        <p>
+            This is the content backend for <strong>camerondahl.com</strong>. You write and publish here;
+            the website is a separate app that fetches published content from this server's API and
+            renders it. Nothing on this server is the public site. The values on this page are read from
+            the running configuration, so they show how <em>this</em> server is set up.
+        </p>
+
+        <ul class="toc">
+            <li><a href="#overview">The big picture</a></li>
+            <li><a href="#content">Where content lives</a></li>
+            <li><a href="#writing">Writing a post</a></li>
+            <li><a href="#publishing">Publishing and previews</a></li>
+            <li><a href="#api">The API</a></li>
+            <li><a href="#signin">Signing in</a></li>
+            <li><a href="#email">Email and error reports</a></li>
+            <li><a href="#deploying">Deploying changes</a></li>
+            <li><a href="#code">Where things are in the code</a></li>
+        </ul>
+
+        {# ------------------------------------------------------------------ #}
+        <h2 id="overview">The big picture</h2>
+        <ol>
+            <li><strong>Author here.</strong> Pages, posts and snippets are edited in this Wagtail admin and stored in the database.</li>
+            <li><strong>Publish.</strong> Only published (“live”) content is visible to the outside world. Drafts and unpublished changes stay private.</li>
+            <li><strong>The website fetches it.</strong> camerondahl.com calls <code>{{ api_root }}</code> and renders what it gets back. Images and files are served from this server; the API returns full URLs to them.</li>
+        </ol>
+        <p>
+            So a change you publish appears on the site as soon as the frontend next fetches it. How quickly that
+            happens depends on the frontend's caching, not on anything here.
+        </p>
+
+        {# ------------------------------------------------------------------ #}
+        <h2 id="content">Where content lives</h2>
+        <p>Content is either a <strong>page</strong> (in the page tree, with drafts, revisions and scheduling) or a <strong>snippet</strong> (a reusable record, no tree).</p>
+
+        <h3>Pages</h3>
+        <ul>
+            <li><strong>Home</strong> is the root. It can hold exactly the two pages below.</li>
+            <li><strong>Blog index</strong> (only one allowed) holds every post. Posts are added as its children.</li>
+            <li><strong>Blog post</strong>: a writing. Title, intro, header image, author, categories, tags, the body, and an optional list of references (citations).</li>
+            <li><strong>About</strong> (only one allowed): the biography.{% if links.about %} <a href="{{ links.about }}">Edit it</a>.{% endif %}</li>
+        </ul>
+        {% if links.explorer %}<p><a href="{{ links.explorer }}">Open the page tree</a></p>{% endif %}
+
+        <h3>Snippets</h3>
+        <ul>
+            <li><strong>Authors</strong> and <strong>Categories</strong> are picked on each post.</li>
+            <li><strong>Projects</strong> and <strong>Technologies</strong> are the portfolio. They aren't pages: a project lists the technologies it uses.</li>
+        </ul>
+
+        <table class="facts">
+            <tr><th>Live posts</th><td>{{ counts.live_posts }}</td></tr>
+            <tr><th>Draft posts (never published)</th><td>{{ counts.draft_posts }}</td></tr>
+            <tr><th>Live posts with unpublished changes</th><td>{{ counts.unpublished_changes }}</td></tr>
+            <tr><th>Authors</th><td>{{ counts.authors }}{% if links.authors %} · <a href="{{ links.authors }}">manage</a>{% endif %}</td></tr>
+            <tr><th>Categories</th><td>{{ counts.categories }}{% if links.categories %} · <a href="{{ links.categories }}">manage</a>{% endif %}</td></tr>
+            <tr><th>Projects</th><td>{{ counts.projects }}{% if links.projects %} · <a href="{{ links.projects }}">manage</a>{% endif %}</td></tr>
+            <tr><th>Technologies</th><td>{{ counts.technologies }}{% if links.technologies %} · <a href="{{ links.technologies }}">manage</a>{% endif %}</td></tr>
+        </table>
+
+        {# ------------------------------------------------------------------ #}
+        <h2 id="writing">Writing a post</h2>
+        <p>A post's body is a list of blocks, added in any order:</p>
+        <ul>
+            <li><strong>Text</strong>: rich text, with a size option.</li>
+            <li>
+                <strong>Image</strong>: pick an image, then either write alt text or tick “decorative” (one is required),
+                plus an optional caption. Resized copies (640, 1280 and 1920 px wide, never enlarged) are generated
+                automatically so the site can serve the right size for each screen.
+            </li>
+            <li>
+                <strong>Code</strong>: choose a language and type into the code editor (line numbers, syntax colouring,
+                auto-indent). <kbd>Tab</kbd> indents; press <kbd>Esc</kbd> then <kbd>Tab</kbd> to move on to the next field.
+                When the post is saved, the code is turned into coloured HTML for the site using the
+                <strong>{{ code_theme }}</strong> theme{% if links.code_theme %} (<a href="{{ links.code_theme }}">change it</a>; changing it re-colours every existing post){% endif %}.
+                The editor's colours are only for editing and don't affect the site.
+            </li>
+            <li><strong>Quote</strong>: the quoted text, plus optional attribution and a link to the source.</li>
+            <li><strong>Video</strong> and <strong>Document</strong> (a file from the document library).</li>
+        </ul>
+        <p>Reading time is worked out automatically from the text blocks, at about 200 words per minute.</p>
+
+        {# ------------------------------------------------------------------ #}
+        <h2 id="publishing">Publishing and previews</h2>
+        <ul>
+            <li><strong>Save draft</strong> keeps changes private. <strong>Publish</strong> makes them live, so they appear in the API and on the site.</li>
+            <li>Every save is kept as a revision; you can compare or roll back from the page's history.</li>
+            <li>
+                <strong>Preview</strong> shows the draft in the real site design. The admin creates a short-lived signed
+                token and loads <code>{{ preview_client_url }}</code> with it; the site then fetches the draft from
+                <code>{{ api_root }}preview/</code>. The token is the only key, so a preview link works without signing in
+                but stops working when it expires.
+            </li>
+        </ul>
+        <p>If previews come up blank, the site at that address has to handle the preview query on its home page and allow being shown inside this admin.</p>
+
+        {# ------------------------------------------------------------------ #}
+        <h2 id="api">The API</h2>
+        <table class="facts">
+            <tr><th>Mounted at</th><td><code>{{ api_root }}</code></td></tr>
+            <tr><th>Interactive docs</th><td><a href="{{ docs_url }}">{{ docs_url }}</a></td></tr>
+            <tr><th>Image/file URLs start with</th><td>{% if api_base_url %}<code>{{ api_base_url }}</code>{% else %}the requesting host (not set){% endif %}</td></tr>
+        </table>
+        <ul>
+            <li>Anyone can read published content: <code>writings/</code> (all posts, newest first), <code>writings/&lt;slug&gt;/</code>, <code>about/</code>, plus Wagtail's standard <code>pages/</code>, <code>images/</code> and <code>documents/</code>.</li>
+            <li>Snippets, site details and any writes need an API token, sent as <code>Authorization: Bearer &lt;token&gt;</code>.</li>
+        </ul>
+        {% if links.api_routes %}<p><a href="{{ links.api_routes }}">See every route</a></p>{% endif %}
+
+        {# ------------------------------------------------------------------ #}
+        <h2 id="signin">Signing in</h2>
+        <table class="facts">
+            <tr><th>Login method</th><td>{% if magic_link_only %}Email sign-in links only (passwords are disabled){% else %}Password, or an email sign-in link{% endif %}</td></tr>
+            <tr><th>Link lifetime</th><td>{{ link_minutes }} minutes, usable once</td></tr>
+            <tr><th>Request limits</th><td>{{ max_per_email }} per email address and {{ max_per_ip }} per IP address, every {{ link_minutes }} minutes</td></tr>
+        </table>
+        <p>
+            Enter your email on the login page and a sign-in link is sent if it belongs to an active staff account.
+            The page always says the same thing whether or not the address matched, and requests over the limit
+            quietly send nothing. If a link doesn't arrive, wait for the window to pass before trying again.
+        </p>
+
+        {# ------------------------------------------------------------------ #}
+        <h2 id="email">Email and error reports</h2>
+        <table class="facts">
+            <tr><th>Email is sent with</th><td><code>{{ email_backend }}</code></td></tr>
+            <tr><th>Error emails</th><td>{% if error_emails_on %}On: server errors are emailed to the admins{% elif debug %}Off: debug mode shows errors in the browser instead{% else %}Off: no admin addresses are set{% endif %}</td></tr>
+        </table>
+        <p>
+            {% if email_backend == "TrustedCAEmailBackend" %}
+                Mail goes out through Proton Mail Bridge on this machine, trusting only its own certificate.
+            {% elif email_backend == "EmailBackend" %}
+                Mail goes out over SMTP.
+            {% else %}
+                Mail is printed to the server log rather than sent.
+            {% endif %}
+        </p>
+
+        {# ------------------------------------------------------------------ #}
+        <h2 id="deploying">Deploying changes</h2>
+        <p>The server is a DigitalOcean droplet. The app runs under gunicorn behind nginx, with its configuration in a <code>.env</code> file in the project folder. After pulling new code:</p>
+<pre><code>source venv/bin/activate
+pip install -r requirements.txt     # if dependencies changed
+python manage.py migrate            # apply database changes
+python manage.py collectstatic      # copy admin CSS/JS into place
+# then restart gunicorn</code></pre>
+        <div class="callout">
+            <strong>Always restart gunicorn after migrating.</strong> Until it restarts, it keeps running the old code
+            against the new database. When block types change, that breaks pages with errors such as
+            “… value must be an integer.”
+        </div>
+        <p>
+            The code editor is a pre-built JavaScript file that's checked in, so deploys don't need Node. It only needs
+            rebuilding when the editor itself changes: <code>npm install &amp;&amp; npm run build</code> in
+            <code>blog/static_src/code-editor/</code>, then commit the result.
+        </p>
+        {% if links.server_health %}<p><a href="{{ links.server_health }}">Check server health</a></p>{% endif %}
+
+        {# ------------------------------------------------------------------ #}
+        <h2 id="code">Where things are in the code</h2>
+        <table class="listing">
+            <thead><tr><th>To change…</th><th>Look in</th></tr></thead>
+            <tbody>
+                <tr><td>Post fields, body blocks, code highlighting</td><td><code>blog/models.py</code></td></tr>
+                <tr><td>The code editor</td><td><code>blog/static_src/code-editor/</code>, <code>blog/widgets.py</code></td></tr>
+                <tr><td>Changing stored block data</td><td><code>blog/stream_migrations.py</code> and a migration</td></tr>
+                <tr><td>Site API routes (writings, about, preview)</td><td><code>camdahl_cms/api.py</code></td></tr>
+                <tr><td>Sign-in links and rate limits</td><td><code>camdahl_cms/accounts.py</code></td></tr>
+                <tr><td>Settings (shared / dev / production)</td><td><code>camdahl_cms/settings/</code>, plus <code>.env</code> (every variable is listed in <code>.env.example</code>)</td></tr>
+                <tr><td>Admin pages like this one</td><td><code>camdahl_cms/views.py</code>, <code>camdahl_cms/wagtail_hooks.py</code></td></tr>
+                <tr><td>Portfolio</td><td><code>projects/models.py</code></td></tr>
+            </tbody>
+        </table>
+        <p>A fuller technical write-up is in <code>CLAUDE.md</code> at the root of the repository.</p>
+    </div>
+{% endblock %}
